@@ -1,7 +1,7 @@
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 
-export default function ProtectedRoute({ children, adminOnly = false }) {
+export default function ProtectedRoute({ children, adminOnly = false, superAdminOnly = false }) {
   const { user, loading } = useAuth();
   if (loading) {
     return (
@@ -11,6 +11,7 @@ export default function ProtectedRoute({ children, adminOnly = false }) {
     );
   }
   if (!user) return <Navigate to="/login" replace />;
-  if (adminOnly && user.role !== "admin") return <Navigate to="/app/dashboard" replace />;
+  if (superAdminOnly && user.role !== "super_admin") return <Navigate to="/app/dashboard" replace />;
+  if (adminOnly && !["admin", "super_admin"].includes(user.role)) return <Navigate to="/app/dashboard" replace />;
   return children;
 }

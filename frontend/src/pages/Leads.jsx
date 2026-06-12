@@ -22,6 +22,7 @@ import {
 import { STATUS_LABELS, STATUS_COLORS, STATUSES, formatCurrency, formatDate } from "@/lib/constants";
 import { Plus, Search } from "lucide-react";
 import { toast } from "sonner";
+import { handleApiError } from "@/lib/errors";
 
 export default function Leads() {
   const [leads, setLeads] = useState([]);
@@ -165,7 +166,7 @@ function CreateLeadDialog({ onSaved }) {
       toast.success("Lead creado");
       onSaved();
     } catch (e) {
-      toast.error(e?.response?.data?.detail || "Error al crear lead");
+      handleApiError(e, "Error al crear lead");
     } finally {
       setLoading(false);
     }

@@ -21,6 +21,7 @@ from auth import (  # noqa: E402
     get_current_user,
     hash_password,
     require_admin,
+    require_super_admin,
     verify_password,
 )
 from database import client, db  # noqa: E402
@@ -61,6 +62,7 @@ from models import (  # noqa: E402
     UserPublic,
     UserUpdate,
     Workspace,
+    WorkspaceAdminUpdate,
     WorkspaceCreate,
     WorkspacePublic,
     LEAD_STATUSES,
@@ -74,6 +76,92 @@ app = FastAPI(title="Innovagraf Growth System API")
 api = APIRouter(prefix="/api")
 
 DEFAULT_WORKSPACE_SLUG = "innovagraf"
+
+PLAN_LIMITS = {
+    "starter": {
+        "leads_per_month": 50,
+        "users": 2,
+        "ai_proposals": False,
+        "pdf_export": False,
+    },
+    "pro": {
+        "leads_per_month": 500,
+        "users": 10,
+        "ai_proposals": True,
+        "pdf_export": True,
+    },
+    "enterprise": {
+        "leads_per_month": None,  # None = unlimited
+        "users": None,
+        "ai_proposals": True,
+        "pdf_export": True,
+    },
+}
+
+
+def _plan_limits(plan: str) -> dict:
+    return PLAN_LIMITS.get(plan, PLAN_LIMITS["starter"])
+
+
+async def _workspace_or_404(workspace_id: str) -> Workspace:
+    doc = await db.workspaces.find_one({"id": workspace_id})
+    ws = Workspace.from_mongo(doc)
+    if not ws:
+        raise HTTPException(status_code=404, detail="Workspace no encontrado")
+    return ws
+
+
+def _month_start_iso() -> str:
+    now = datetime.now(timezone.utc)
+    return f"{now.year}-{now.month:02d}-01T00:00:00+00:00"
+
+
+async def _leads_this_month(workspace_id: str) -> int:
+    return await db.leads.count_documents({
+        "workspace_id": workspace_id,
+        "created_at": {"$gte": _month_start_iso()},
+    })
+
+
+async def _users_count(workspace_id: str) -> int:
+    return await db.users.count_documents({"workspace_id": workspace_id})
+
+
+async def assert_can_create_lead(workspace_id: str) -> None:
+    ws = await _workspace_or_404(workspace_id)
+    if ws.status == "suspended":
+        raise HTTPException(status_code=402, detail="Tu workspace está suspendido. Contacta al administrador.")
+    limit = _plan_limits(ws.plan)["leads_per_month"]
+    if limit is None:
+        return
+    count = await _leads_this_month(workspace_id)
+    if count >= limit:
+        raise HTTPException(
+            status_code=402,
+            detail=f"Alcanzaste el límite de {limit} leads/mes de tu plan {ws.plan}. Upgrade a Pro para más capacidad.",
+        )
+
+
+async def assert_can_create_user(workspace_id: str) -> None:
+    ws = await _workspace_or_404(workspace_id)
+    limit = _plan_limits(ws.plan)["users"]
+    if limit is None:
+        return
+    count = await _users_count(workspace_id)
+    if count >= limit:
+        raise HTTPException(
+            status_code=402,
+            detail=f"Alcanzaste el límite de {limit} usuarios de tu plan {ws.plan}. Upgrade a Pro para más capacidad.",
+        )
+
+
+async def assert_feature(workspace_id: str, feature: str, label: str) -> None:
+    ws = await _workspace_or_404(workspace_id)
+    if not _plan_limits(ws.plan).get(feature, False):
+        raise HTTPException(
+            status_code=402,
+            detail=f"{label} requiere el plan Pro o Enterprise. Actualiza tu plan para desbloquear esta función.",
+        )
 
 
 async def _get_workspace_by_id(workspace_id: str) -> Workspace | None:
@@ -92,7 +180,7 @@ async def _workspace_public(workspace_id: str) -> WorkspacePublic | None:
     ws = await _get_workspace_by_id(workspace_id)
     if not ws:
         return None
-    return WorkspacePublic(id=ws.id, slug=ws.slug, name=ws.name, plan=ws.plan)
+    return WorkspacePublic(id=ws.id, slug=ws.slug, name=ws.name, plan=ws.plan, status=ws.status)
 
 
 async def to_public(user: User) -> UserPublic:
@@ -144,6 +232,13 @@ async def startup() -> None:
         )
         await db.users.insert_one(u.to_mongo())
         logger.info("Seeded default admin user")
+    elif admin.get("role") != "super_admin":
+        # Migration: promote existing innovagraf admin to super_admin
+        await db.users.update_one(
+            {"email": "admin@innovagraf.com"},
+            {"$set": {"role": "super_admin"}},
+        )
+        logger.info("Promoted existing innovagraf admin to super_admin")
 
     sales = await db.users.find_one({"email": "ventas@innovagraf.com"})
     if not sales:
@@ -180,6 +275,14 @@ async def startup() -> None:
         )
         if res.modified_count:
             logger.info("Migrated %s docs in %s to default workspace", res.modified_count, coll)
+
+    # backfill: workspaces without status → "active"
+    res = await db.workspaces.update_many(
+        {"$or": [{"status": {"$exists": False}}, {"status": None}]},
+        {"$set": {"status": "active"}},
+    )
+    if res.modified_count:
+        logger.info("Backfilled status=active on %s workspaces", res.modified_count)
 
 
 @app.on_event("shutdown")
@@ -260,7 +363,120 @@ async def my_workspace(user: User = Depends(get_current_user)):
     ws = await _get_workspace_by_id(user.workspace_id)
     if not ws:
         raise HTTPException(status_code=404, detail="Workspace no encontrado")
-    return WorkspacePublic(id=ws.id, slug=ws.slug, name=ws.name, plan=ws.plan)
+    return WorkspacePublic(id=ws.id, slug=ws.slug, name=ws.name, plan=ws.plan, status=ws.status)
+
+
+@api.get("/workspaces/usage")
+async def workspace_usage(user: User = Depends(get_current_user)):
+    ws = await _workspace_or_404(user.workspace_id)
+    limits = _plan_limits(ws.plan)
+    leads_used = await _leads_this_month(user.workspace_id)
+    users_used = await _users_count(user.workspace_id)
+    return {
+        "workspace": {
+            "id": ws.id, "slug": ws.slug, "name": ws.name,
+            "plan": ws.plan, "status": ws.status,
+        },
+        "limits": limits,
+        "usage": {
+            "leads_this_month": leads_used,
+            "users": users_used,
+        },
+        "available_plans": list(PLAN_LIMITS.keys()),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Super-admin endpoints — only super_admin role (Innovagraf platform team)
+# ---------------------------------------------------------------------------
+@api.get("/super-admin/overview")
+async def super_overview(_: User = Depends(require_super_admin)):
+    total_workspaces = await db.workspaces.count_documents({})
+    active_workspaces = await db.workspaces.count_documents({"status": "active"})
+    suspended_workspaces = await db.workspaces.count_documents({"status": "suspended"})
+    total_users = await db.users.count_documents({})
+    total_leads = await db.leads.count_documents({})
+    total_proposals = await db.proposals.count_documents({})
+    won_value_pipeline = await db.leads.aggregate([
+        {"$match": {"status": "ganado"}},
+        {"$group": {"_id": None, "total": {"$sum": "$estimated_value"}}},
+    ]).to_list(1)
+    won_value = won_value_pipeline[0]["total"] if won_value_pipeline else 0
+
+    # Plan distribution
+    plan_dist_pipeline = await db.workspaces.aggregate([
+        {"$group": {"_id": "$plan", "count": {"$sum": 1}}},
+    ]).to_list(20)
+    plan_distribution = {p["_id"] or "starter": p["count"] for p in plan_dist_pipeline}
+
+    return {
+        "total_workspaces": total_workspaces,
+        "active_workspaces": active_workspaces,
+        "suspended_workspaces": suspended_workspaces,
+        "total_users": total_users,
+        "total_leads": total_leads,
+        "total_proposals": total_proposals,
+        "total_won_value": round(won_value, 2),
+        "plan_distribution": plan_distribution,
+    }
+
+
+@api.get("/super-admin/workspaces")
+async def super_list_workspaces(_: User = Depends(require_super_admin)):
+    docs = await db.workspaces.find({}, {"_id": 0}).sort("created_at", -1).to_list(500)
+    result = []
+    for d in docs:
+        wid = d["id"]
+        leads_count = await db.leads.count_documents({"workspace_id": wid})
+        leads_month = await _leads_this_month(wid)
+        users_count = await db.users.count_documents({"workspace_id": wid})
+        proposals_count = await db.proposals.count_documents({"workspace_id": wid})
+        result.append({
+            **d,
+            "stats": {
+                "leads_total": leads_count,
+                "leads_this_month": leads_month,
+                "users": users_count,
+                "proposals": proposals_count,
+            },
+        })
+    return result
+
+
+@api.patch("/super-admin/workspaces/{workspace_id}")
+async def super_update_workspace(
+    workspace_id: str,
+    payload: WorkspaceAdminUpdate,
+    _: User = Depends(require_super_admin),
+):
+    doc = await db.workspaces.find_one({"id": workspace_id})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Workspace no encontrado")
+    upd = payload.model_dump(exclude_none=True)
+    if "plan" in upd and upd["plan"] not in PLAN_LIMITS:
+        raise HTTPException(status_code=400, detail="Plan inválido")
+    if "status" in upd and upd["status"] not in ("active", "suspended"):
+        raise HTTPException(status_code=400, detail="Estado inválido")
+    upd["updated_at"] = datetime.now(timezone.utc).isoformat()
+    await db.workspaces.update_one({"id": workspace_id}, {"$set": upd})
+    doc = await db.workspaces.find_one({"id": workspace_id}, {"_id": 0})
+    return doc
+
+
+@api.delete("/super-admin/workspaces/{workspace_id}")
+async def super_delete_workspace(workspace_id: str, current: User = Depends(require_super_admin)):
+    if workspace_id == current.workspace_id:
+        raise HTTPException(status_code=400, detail="No puedes eliminar tu propio workspace")
+    # cascade delete
+    for coll in ("users", "leads", "diagnostics", "meetings", "proposals", "services"):
+        await db[coll].delete_many({"workspace_id": workspace_id})
+    await db.workspaces.delete_one({"id": workspace_id})
+    return {"deleted": True}
+
+
+@api.get("/super-admin/plans")
+async def super_list_plans(_: User = Depends(require_super_admin)):
+    return PLAN_LIMITS
 
 
 # ---------------------------------------------------------------------------
@@ -278,6 +494,7 @@ async def create_user(payload: UserCreate, current: User = Depends(require_admin
         raise HTTPException(status_code=400, detail="Email ya registrado")
     if payload.role == "super_admin":
         raise HTTPException(status_code=400, detail="Rol no permitido")
+    await assert_can_create_user(current.workspace_id)
     u = User(
         email=payload.email.lower(),
         name=payload.name,
@@ -388,6 +605,7 @@ async def diagnostic_submit(payload: DiagnosticSubmit, workspace: str | None = N
         lead.updated_at = datetime.now(timezone.utc)
         await db.leads.replace_one({"id": lead.id}, lead.to_mongo())
     else:
+        await assert_can_create_lead(workspace_id)
         lead = Lead(
             workspace_id=workspace_id,
             company_name=payload.company_name,
@@ -478,6 +696,7 @@ async def kanban(user: User = Depends(get_current_user)):
 async def create_lead(payload: LeadCreate, user: User = Depends(get_current_user)):
     if payload.status not in LEAD_STATUSES:
         raise HTTPException(status_code=400, detail="Estado inválido")
+    await assert_can_create_lead(user.workspace_id)
     lead = Lead(
         **payload.model_dump(),
         owner_id=user.id,
@@ -617,6 +836,7 @@ async def list_proposals(lead_id: Optional[str] = None, user: User = Depends(get
 
 @api.post("/proposals/generate")
 async def generate_proposal(payload: ProposalGenerateRequest, user: User = Depends(get_current_user)):
+    await assert_feature(user.workspace_id, "ai_proposals", "El generador de propuestas con IA")
     lead_doc = await db.leads.find_one(ws_filter(user, {"id": payload.lead_id}))
     lead = Lead.from_mongo(lead_doc)
     if not lead:
@@ -714,6 +934,7 @@ async def update_proposal(proposal_id: str, payload: ProposalUpdate, user: User 
 
 @api.get("/proposals/{proposal_id}/pdf")
 async def proposal_pdf(proposal_id: str, user: User = Depends(get_current_user)):
+    await assert_feature(user.workspace_id, "pdf_export", "Exportar PDF")
     doc = await db.proposals.find_one(ws_filter(user, {"id": proposal_id}), {"_id": 0})
     if not doc:
         raise HTTPException(status_code=404, detail="Propuesta no encontrada")

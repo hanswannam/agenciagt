@@ -30,6 +30,7 @@ import {
   StickyNote,
 } from "lucide-react";
 import { toast } from "sonner";
+import { handleApiError } from "@/lib/errors";
 import {
   STATUSES,
   STATUS_LABELS,
@@ -327,7 +328,7 @@ function GenerateProposalDialog({ leadId, defaultServices, onSaved }) {
       toast.success("Propuesta generada");
       onSaved(data.id);
     } catch (e) {
-      toast.error("Error al generar propuesta");
+      handleApiError(e, "Error al generar propuesta");
     } finally {
       setLoading(false);
     }

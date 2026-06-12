@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/select";
 import { ArrowLeft, Download, Plus, Save, Send, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { handleApiError } from "@/lib/errors";
 import { formatCurrency } from "@/lib/constants";
 
 export default function ProposalEditor() {
@@ -66,6 +67,14 @@ export default function ProposalEditor() {
     try {
       const token = localStorage.getItem("innovagraf_token");
       const res = await fetch(`${API}/proposals/${id}/pdf`, { headers: { Authorization: `Bearer ${token}` } });
+      if (res.status === 402) {
+        const body = await res.json();
+        toast.error("Upgrade requerido", {
+          description: body?.detail || "Exportar a PDF requiere plan Pro o Enterprise.",
+          duration: 6000,
+        });
+        return;
+      }
       if (!res.ok) throw new Error();
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);

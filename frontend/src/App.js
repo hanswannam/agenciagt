@@ -18,6 +18,7 @@ import Meetings from "@/pages/Meetings";
 import Proposals from "@/pages/Proposals";
 import ProposalEditor from "@/pages/ProposalEditor";
 import Admin from "@/pages/Admin";
+import SuperAdmin from "@/pages/SuperAdmin";
 
 function App() {
   return (
@@ -53,6 +54,14 @@ function App() {
               element={
                 <ProtectedRoute adminOnly>
                   <Admin />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="super-admin"
+              element={
+                <ProtectedRoute superAdminOnly>
+                  <SuperAdmin />
                 </ProtectedRoute>
               }
             />

@@ -9,6 +9,7 @@ import {
   LogOut,
   Sparkles,
   Trello,
+  Crown,
 } from "lucide-react";
 
 const links = [
@@ -77,6 +78,43 @@ export default function DashboardLayout() {
               <Settings2 size={18} />
               Administración
             </NavLink>
+          )}
+          {user?.role === "super_admin" && (
+            <>
+              <NavLink
+                to="/app/admin"
+                data-testid="nav-admin"
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition ${
+                    isActive
+                      ? "bg-brand-orange text-white"
+                      : "text-white/70 hover:bg-white/5 hover:text-white"
+                  }`
+                }
+              >
+                <Settings2 size={18} />
+                Administración
+              </NavLink>
+              <div className="mt-3 pt-3 border-t border-white/10">
+                <div className="px-3 text-[10px] uppercase tracking-[0.2em] text-brand-orange font-bold mb-1">
+                  Plataforma
+                </div>
+                <NavLink
+                  to="/app/super-admin"
+                  data-testid="nav-super-admin"
+                  className={({ isActive }) =>
+                    `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition ${
+                      isActive
+                        ? "bg-brand-orange text-white"
+                        : "text-white/70 hover:bg-white/5 hover:text-white"
+                    }`
+                  }
+                >
+                  <Crown size={18} />
+                  Super-Admin
+                </NavLink>
+              </div>
+            </>
           )}
         </nav>
         <div className="p-3 border-t border-white/10">

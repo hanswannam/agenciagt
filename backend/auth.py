@@ -71,3 +71,16 @@ async def require_admin(user: User = Depends(get_current_user)) -> User:
     if user.role not in ("admin", "super_admin"):
         raise HTTPException(status_code=403, detail="Permiso de administrador requerido")
     return user
+
+
+async def require_super_admin(user: User = Depends(get_current_user)) -> User:
+    if user.role != "super_admin":
+        raise HTTPException(status_code=403, detail="Permiso de super administrador requerido")
+    return user
+
+
+
+async def require_super_admin(user: User = Depends(get_current_user)) -> User:
+    if user.role != "super_admin":
+        raise HTTPException(status_code=403, detail="Permiso de super administrador requerido")
+    return user

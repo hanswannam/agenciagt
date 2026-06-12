@@ -1,0 +1,42 @@
+{
+  "summary": "Backend Phase 3 testing — Plan limits + Super-admin panel. All 91 pytest tests pass (100%): 63 regression preserved + 28 new Phase 3. Verified: /workspaces/usage returns workspace+limits+usage+available_plans; starter plan enforces 50 leads/mes (51st = 402), 2 users (3rd = 402), AI proposals blocked (402), PDF blocked (402 BEFORE proposal lookup as required); pro plan allows AI proposal (200) and PDF (200 application/pdf bytes); enterprise (innovagraf) has limits_per_month=None, all features unlocked; diagnostic submit respects lead limit and same-email submit does NOT increment lead counter; suspended workspace returns 402 with 'suspendido' in detail on POST /leads and /diagnostic/submit while GETs (/leads, /workspaces/me) still work; super-admin overview (8 metrics + plan_distribution), workspaces list with stats per ws, PATCH plan/status with 400 on invalid values, DELETE cascades through users/leads/diagnostics/meetings/proposals/services and 400 when self-deleting, GET /super-admin/plans returns PLAN_LIMITS dict; role enforcement: comercial → 403 on all /super-admin/* AND /admin/users POST and /services POST; starter admin (role='admin') → 403 on /super-admin/*; migrations: admin@innovagraf auto-promoted to super_admin, all workspaces have status field. Plan upgrade starter→pro reflects new caps in subsequent /workspaces/usage call.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "/app/backend/auth.py", "issue": "require_super_admin is defined twice (lines 76-79 and 83-86) — identical bodies, second silently overrides first. Cosmetic dead-code duplicate; no functional bug. Recommend removing the duplicate definition."}
+    ]
+  },
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_phase3_plans_super_admin.py",
+    "/app/backend/tests/test_innovagraf_backend.py",
+    "/app/backend/tests/test_multitenant.py",
+    "/app/test_reports/pytest/pytest_results.xml",
+    "/app/test_reports/pytest/phase3_results.xml"
+  ],
+  "action_items": [
+    "Optional: remove duplicate require_super_admin definition in /app/backend/auth.py (lines 83-86)."
+  ],
+  "critical_code_review_comments": [
+    "Plan gating ordering correct: assert_feature() runs before LLM/PDF lookup so /proposals/{fake_id}/pdf returns 402 (not 404) for starter — matches spec intent of failing fast before doing expensive work.",
+    "_leads_this_month uses string ISO comparison with $gte against an ISO calendar-month start; works correctly because all created_at values are stored as ISO strings via BaseDocument.to_mongo(). Be aware that if any legacy doc stored created_at as a real BSON Date, lexicographic string comparison would not match — currently fine since insertion path always serializes to ISO.",
+    "assert_can_create_lead uses count >= limit (strict equality + greater-than) — matches the 50/mes semantics exactly (51st blocked). Verified end-to-end.",
+    "Diagnostic submit: assert_can_create_lead is only called in the NEW lead branch, so same-email resubmission correctly bypasses the limit. Test_existing_email_update_does_not_count confirms this.",
+    "Super-admin DELETE cascade order: deletes child collections first then the workspace doc — safe ordering; orphan rows impossible. No transaction needed at MVP scale.",
+    "Suspended workspace gating only applies to lead creation (assert_can_create_lead). User creation (assert_can_create_user) does NOT block on status='suspended' — possibly intentional (admin needs to be able to add seats after re-activation) but worth confirming with product.",
+    "/api/super-admin/workspaces returns docs via find({}, {'_id': 0}) — correct ObjectId exclusion. Stats are computed N+1 (one count per workspace per collection); fine at MVP scale, would need aggregation pipeline at scale.",
+    "auth.py duplicate require_super_admin definition (lines 76-79 and 83-86) — dead code, no bug.",
+    "PLAN_LIMITS dict is in-process (not DB-backed) — changes require deploy. Acceptable for MVP but consider DB-backed config for future tier tweaks without redeploy.",
+    "Diagnostic submit calls generate_diagnostic_summary (LLM) BEFORE assert_can_create_lead. If a workspace is at lead limit, the LLM call still fires (wasted cost) for new emails. Consider moving assert_can_create_lead before the LLM call when contact_email is not yet in leads. (Not blocking, optimization.)"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_phase3_plans_super_admin.py (NEW — 28 Phase 3 tests)"
+  ],
+  "success_rate": {"backend": "100% (91/91)", "frontend": "not in scope"},
+  "test_credentials": "admin@innovagraf.com / Innovagraf2026! (super_admin) ; ventas@innovagraf.com / Ventas2026! (comercial). Per-run disposable workspaces created with timestamped slugs (teststarter*, testpro*, leadlim*, susp*, upg*, diag*, todelete*). Disposable workspaces are deleted by their respective tests; teststarter+testpro session workspaces remain in DB after run (acceptable for MVP; can be cleaned via super-admin DELETE).",
+  "seed_data_creation": "Each run signs up fresh starter+pro workspaces (session fixtures) and 4-5 disposable workspaces for delete/suspend/upgrade/lead-limit/diagnostic tests. Lead-limit test creates 50 leads in its disposable workspace then deletes the whole workspace via DELETE /super-admin/workspaces/{id}.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Run full backend regression with: pytest /app/backend/tests/ -v (≈2m15s). Phase 3 file is /app/backend/tests/test_phase3_plans_super_admin.py. Phase 3 tests are self-cleaning for disposable workspaces but the session-scoped starter_ws and pro_ws workspaces persist. The lead-limit test creates 50 leads then deletes the workspace, so it is idempotent across runs.",
+  "rca of the issue": "No bugs found in Phase 3 implementation. All plan-limit gates fire before expensive operations (LLM/PDF), suspension blocks writes while preserving read access, super-admin RBAC is strict (super_admin only), starter-admin role correctly cannot access super-admin endpoints, cascade delete is complete, and migrations (super_admin promotion + status backfill) work as designed. Only minor finding: cosmetic duplicate require_super_admin definition in auth.py."
+}

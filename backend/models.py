@@ -58,6 +58,7 @@ class Workspace(BaseDocument):
     name: str
     owner_id: Optional[str] = None
     plan: str = "starter"  # starter | pro | enterprise
+    status: str = "active"  # active | suspended
     settings: dict[str, Any] = Field(default_factory=dict)
 
 
@@ -71,6 +72,13 @@ class WorkspacePublic(BaseModel):
     slug: str
     name: str
     plan: str
+    status: str = "active"
+
+
+class WorkspaceAdminUpdate(BaseModel):
+    plan: Optional[str] = None
+    status: Optional[str] = None
+    name: Optional[str] = None
 
 
 # ---------------------------------------------------------------------------

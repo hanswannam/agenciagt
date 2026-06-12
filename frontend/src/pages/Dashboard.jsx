@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import UsageBanner from "@/components/UsageBanner";
 import {
   BarChart,
   Bar,
@@ -78,6 +79,8 @@ export default function Dashboard() {
           Ir al CRM <ArrowUpRight size={14} />
         </Link>
       </header>
+
+      <UsageBanner />
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {kpis.map((k) => (
