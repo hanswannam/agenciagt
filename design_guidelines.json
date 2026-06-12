@@ -1,0 +1,101 @@
+{
+  "project_name": "Innovagraf Growth System",
+  "theme": "Hybrid (Dark Landing / Light Dashboard)",
+  "archetype": "4 (Swiss & High-Contrast)",
+  "instructions_to_main_agent": [
+    "Ensure all files are created as .js or .jsx, NOT .ts or .tsx.",
+    "Use Tailwind CSS for all styling.",
+    "Implement the landing page with pure HTML/Tailwind elements and deep Framer Motion animations for the 'creative agency' feel.",
+    "Implement the dashboard using Shadcn UI components but strip away the default 'Vercel' look by applying the custom palette.",
+    "Include data-testid attributes on ALL interactive elements and key informational elements. Use kebab-case, role-based naming (e.g., data-testid='login-submit-button').",
+    "Use lucide-react for all iconography.",
+    "Implement the Kanban CRM pipeline using a drag-and-drop library like @hello-pangea/dnd or dnd-kit.",
+    "Use recharts for the dashboard data visualizations (embudo, líneas, barras).",
+    "For the gauge/radial chart in the diagnosis score, customize recharts or use a specialized component."
+  ],
+  "typography": {
+    "headings": "Outfit, sans-serif",
+    "body": "Plus Jakarta Sans, sans-serif",
+    "font_weights": {
+      "headings": "600, 700, 800",
+      "body": "400, 500, 600"
+    },
+    "scale": {
+      "h1": "text-5xl sm:text-6xl tracking-tighter leading-tight",
+      "h2": "text-3xl sm:text-4xl tracking-tight leading-snug",
+      "h3": "text-xl sm:text-2xl font-semibold",
+      "body": "text-base leading-relaxed",
+      "labels": "text-xs uppercase tracking-[0.2em] font-bold"
+    }
+  },
+  "colors": {
+    "primary": {
+      "DEFAULT": "#FF4F00",
+      "hover": "#CC3F00",
+      "foreground": "#FFFFFF"
+    },
+    "secondary": {
+      "DEFAULT": "#0B0F19",
+      "hover": "#1A202C",
+      "foreground": "#FFFFFF"
+    },
+    "background": {
+      "light": "#FAFAFA",
+      "dark": "#0A0A0A"
+    },
+    "surface": {
+      "light": "#FFFFFF",
+      "dark": "#121212"
+    },
+    "border": {
+      "light": "#E5E7EB",
+      "dark": "#27272A"
+    },
+    "text": {
+      "light_primary": "#0A0A0A",
+      "light_secondary": "#52525B",
+      "dark_primary": "#FAFAFA",
+      "dark_secondary": "#A1A1AA"
+    },
+    "status": {
+      "success": "#10B981",
+      "warning": "#F59E0B",
+      "error": "#EF4444",
+      "info": "#3B82F6"
+    }
+  },
+  "layout_and_spacing": {
+    "philosophy": "Generous Spacing Philosophy with Swiss Grid patterns.",
+    "dashboard_grid": "Bento-style 'Control Room' grid. Base grid: grid-cols-1 md:grid-cols-3 lg:grid-cols-4. Tight gaps (gap-4 or gap-6). Every pixel utilized.",
+    "landing_grid": "Tetris Grid. Asymmetrical layouts. Massive gaps (gap-16 to gap-32). Let elements breathe.",
+    "containers": "Always apply padding inside bordered containers (p-6 or p-8) to avoid text collision.",
+    "radius": "rounded-2xl for main cards, rounded-xl for inner elements, rounded-full for pills/badges. Subtly softer than strict brutalism."
+  },
+  "components": {
+    "buttons": "Flat background, sharp text contrast. Subtle hover lift (-translate-y-0.5), transition-all duration-200. No massive shadows.",
+    "cards": "1px solid border (border-border), no default shadow. On hover, apply subtle shadow-md and slight border color darkening.",
+    "forms": "Shadcn form components heavily customized to match the Swiss aesthetic. High contrast borders on focus (focus:ring-2 focus:ring-primary). Use rounded-lg for inputs.",
+    "kanban_board": "Horizontal scrollable flex container. Columns are gray-tinted backgrounds (bg-gray-50 dark:bg-zinc-900) with 1px borders. Cards are white (or dark surface) with shadow-sm.",
+    "navigation": "Glassmorphism for landing page sticky header (backdrop-blur-xl bg-white/70 or bg-black/70). Solid clean sidebar for the Executive Dashboard."
+  },
+  "motion": {
+    "philosophy": "Meaningful and performant. Focus on flow and data revelation.",
+    "page_transitions": "Fade in and slight slide up (y: 20 -> 0).",
+    "hover_states": "Quick (150ms) changes in border color and slight elevation.",
+    "progress_bar": "Smooth width transitions with Framer Motion for the multi-step diagnosis. Use a vibrant gradient (e.g., from primary to orange-400)."
+  },
+  "image_urls": {
+    "hero_background": {
+      "url": "https://images.unsplash.com/photo-1470075801209-17f9ec0cada6?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxODh8MHwxfHNlYXJjaHwxfHxtb2Rlcm4lMjBjb3Jwb3JhdGUlMjBnbGFzcyUyMG9mZmljZSUyMGFyY2hpdGVjdHVyZSUyMHN1bnNldHxlbnwwfHx8fDE3ODEyODkxMjl8MA&ixlib=rb-4.1.0&q=85",
+      "description": "Modern glass corporate building at dusk - use for landing page hero or background texture with heavy dark overlay (bg-black/60) to let text pop."
+    },
+    "dashboard_abstract": {
+      "url": "https://images.unsplash.com/photo-1709626011485-6fe000ea2dbc?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NjZ8MHwxfHNlYXJjaHwzfHxhYnN0cmFjdCUyMGdlb21ldHJpYyUyMDNkJTIwc2hhcGVzJTIwbWluaW1hbHxlbnwwfHx8fDE3ODEyODkxMjh8MA&ixlib=rb-4.1.0&q=85",
+      "description": "Abstract 3D geometric shapes - use as placeholder for AI Recommendation Engine visualizations or auth screen backgrounds."
+    },
+    "team_collaboration": {
+      "url": "https://images.unsplash.com/photo-1521791136064-7986c2920216?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2NzR8MHwxfHNlYXJjaHwzfHxidXNpbmVzcyUyMHByb2Zlc3Npb25hbHMlMjBoYW5kc2hha2UlMjBtZWV0aW5nfGVufDB8fHx8MTc4MTI4OTEyOXww&ixlib=rb-4.1.0&q=85",
+      "description": "Business professionals meeting - use for 'Casos de Éxito', CRM module presentation, or the 'Agendar Reunión' section."
+    }
+  }
+}
