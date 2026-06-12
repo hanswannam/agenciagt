@@ -1,89 +1,704 @@
-from fastapi import FastAPI, APIRouter
-from dotenv import load_dotenv
-from starlette.middleware.cors import CORSMiddleware
-from motor.motor_asyncio import AsyncIOMotorClient
-import os
-import logging
-from pathlib import Path
-from pydantic import BaseModel, Field, ConfigDict
-from typing import List
-import uuid
-from datetime import datetime, timezone
+"""Innovagraf Growth System — FastAPI backend."""
+from __future__ import annotations
 
+import logging
+import os
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Optional
+
+from dotenv import load_dotenv
 
 ROOT_DIR = Path(__file__).parent
-load_dotenv(ROOT_DIR / '.env')
+load_dotenv(ROOT_DIR / ".env")
 
-# MongoDB connection
-mongo_url = os.environ['MONGO_URL']
-client = AsyncIOMotorClient(mongo_url)
-db = client[os.environ['DB_NAME']]
+from fastapi import APIRouter, Depends, FastAPI, HTTPException, Response
+from starlette.middleware.cors import CORSMiddleware
 
-# Create the main app without a prefix
-app = FastAPI()
+import models  # noqa: E402  (ensure env loaded first)
+from auth import (  # noqa: E402
+    create_token,
+    get_current_user,
+    hash_password,
+    require_admin,
+    verify_password,
+)
+from database import client, db  # noqa: E402
+from diagnostic_engine import (  # noqa: E402
+    QUESTIONS,
+    SERVICE_CATALOG,
+    compute_scores,
+    estimate_lead_value,
+    recommend_services,
+)
+from ai_service import generate_diagnostic_summary, generate_proposal_content  # noqa: E402
+from pdf_service import build_proposal_pdf  # noqa: E402
+from models import (  # noqa: E402
+    Diagnostic,
+    DiagnosticSubmit,
+    Lead,
+    LeadActivity,
+    LeadCreate,
+    LeadNote,
+    LeadUpdate,
+    LoginRequest,
+    Meeting,
+    MeetingCreate,
+    MeetingUpdate,
+    NoteCreate,
+    Proposal,
+    ProposalGenerateRequest,
+    ProposalItem,
+    ProposalPhase,
+    ProposalUpdate,
+    Service,
+    ServiceCreate,
+    ServiceUpdate,
+    TokenResponse,
+    User,
+    UserCreate,
+    UserPublic,
+    UserUpdate,
+    LEAD_STATUSES,
+)
 
-# Create a router with the /api prefix
-api_router = APIRouter(prefix="/api")
+logging.basicConfig(level=logging.INFO,
+                    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+logger = logging.getLogger("innovagraf")
+
+app = FastAPI(title="Innovagraf Growth System API")
+api = APIRouter(prefix="/api")
 
 
-# Define Models
-class StatusCheck(BaseModel):
-    model_config = ConfigDict(extra="ignore")  # Ignore MongoDB's _id field
-    
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    client_name: str
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+def to_public(user: User) -> UserPublic:
+    return UserPublic(
+        id=user.id, email=user.email, name=user.name,
+        role=user.role, active=user.active, created_at=user.created_at,
+    )
 
-class StatusCheckCreate(BaseModel):
-    client_name: str
 
-# Add your routes to the router instead of directly to app
-@api_router.get("/")
+# ---------------------------------------------------------------------------
+# Startup: seed default admin + default services
+# ---------------------------------------------------------------------------
+@app.on_event("startup")
+async def startup() -> None:
+    # default admin
+    admin = await db.users.find_one({"email": "admin@innovagraf.com"})
+    if not admin:
+        u = User(
+            email="admin@innovagraf.com",
+            name="Administrador Innovagraf",
+            role="admin",
+            password_hash=hash_password("Innovagraf2026!"),
+            active=True,
+        )
+        await db.users.insert_one(u.to_mongo())
+        logger.info("Seeded default admin user")
+
+    sales = await db.users.find_one({"email": "ventas@innovagraf.com"})
+    if not sales:
+        u = User(
+            email="ventas@innovagraf.com",
+            name="Ejecutivo Comercial",
+            role="comercial",
+            password_hash=hash_password("Ventas2026!"),
+            active=True,
+        )
+        await db.users.insert_one(u.to_mongo())
+        logger.info("Seeded default sales user")
+
+    # default services
+    if await db.services.count_documents({}) == 0:
+        for name, info in SERVICE_CATALOG.items():
+            svc = Service(
+                code=name.lower().replace(" ", "_"),
+                name=name,
+                category=info["category"],
+                description=info["description"],
+                base_price=info["base_price"],
+            )
+            await db.services.insert_one(svc.to_mongo())
+        logger.info("Seeded default service catalog")
+
+
+@app.on_event("shutdown")
+async def shutdown() -> None:
+    client.close()
+
+
+# ---------------------------------------------------------------------------
+# Health
+# ---------------------------------------------------------------------------
+@api.get("/")
 async def root():
-    return {"message": "Hello World"}
+    return {"service": "Innovagraf Growth System", "status": "ok"}
 
-@api_router.post("/status", response_model=StatusCheck)
-async def create_status_check(input: StatusCheckCreate):
-    status_dict = input.model_dump()
-    status_obj = StatusCheck(**status_dict)
-    
-    # Convert to dict and serialize datetime to ISO string for MongoDB
-    doc = status_obj.model_dump()
-    doc['timestamp'] = doc['timestamp'].isoformat()
-    
-    _ = await db.status_checks.insert_one(doc)
-    return status_obj
 
-@api_router.get("/status", response_model=List[StatusCheck])
-async def get_status_checks():
-    # Exclude MongoDB's _id field from the query results
-    status_checks = await db.status_checks.find({}, {"_id": 0}).to_list(1000)
-    
-    # Convert ISO string timestamps back to datetime objects
-    for check in status_checks:
-        if isinstance(check['timestamp'], str):
-            check['timestamp'] = datetime.fromisoformat(check['timestamp'])
-    
-    return status_checks
+# ---------------------------------------------------------------------------
+# Auth
+# ---------------------------------------------------------------------------
+@api.post("/auth/login", response_model=TokenResponse)
+async def login(payload: LoginRequest):
+    doc = await db.users.find_one({"email": payload.email.lower()})
+    user = User.from_mongo(doc)
+    if not user or not verify_password(payload.password, user.password_hash):
+        raise HTTPException(status_code=401, detail="Credenciales inválidas")
+    if not user.active:
+        raise HTTPException(status_code=403, detail="Usuario inactivo")
+    token = create_token(user.id, user.role)
+    return TokenResponse(token=token, user=to_public(user))
 
-# Include the router in the main app
-app.include_router(api_router)
+
+@api.get("/auth/me", response_model=UserPublic)
+async def me(user: User = Depends(get_current_user)):
+    return to_public(user)
+
+
+# ---------------------------------------------------------------------------
+# Admin: users
+# ---------------------------------------------------------------------------
+@api.get("/admin/users", response_model=list[UserPublic])
+async def list_users(_: User = Depends(require_admin)):
+    docs = await db.users.find({}, {"_id": 0}).to_list(500)
+    return [to_public(User.from_mongo(d)) for d in docs]
+
+
+@api.post("/admin/users", response_model=UserPublic)
+async def create_user(payload: UserCreate, _: User = Depends(require_admin)):
+    if await db.users.find_one({"email": payload.email.lower()}):
+        raise HTTPException(status_code=400, detail="Email ya registrado")
+    u = User(
+        email=payload.email.lower(),
+        name=payload.name,
+        role=payload.role,
+        password_hash=hash_password(payload.password),
+    )
+    await db.users.insert_one(u.to_mongo())
+    return to_public(u)
+
+
+@api.patch("/admin/users/{user_id}", response_model=UserPublic)
+async def update_user(user_id: str, payload: UserUpdate, _: User = Depends(require_admin)):
+    doc = await db.users.find_one({"id": user_id})
+    user = User.from_mongo(doc)
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    upd = payload.model_dump(exclude_none=True)
+    if "password" in upd:
+        upd["password_hash"] = hash_password(upd.pop("password"))
+    upd["updated_at"] = datetime.now(timezone.utc).isoformat()
+    await db.users.update_one({"id": user_id}, {"$set": upd})
+    doc = await db.users.find_one({"id": user_id})
+    return to_public(User.from_mongo(doc))
+
+
+@api.delete("/admin/users/{user_id}")
+async def delete_user(user_id: str, current: User = Depends(require_admin)):
+    if user_id == current.id:
+        raise HTTPException(status_code=400, detail="No puedes eliminarte a ti mismo")
+    await db.users.delete_one({"id": user_id})
+    return {"deleted": True}
+
+
+# ---------------------------------------------------------------------------
+# Diagnostic - public endpoints (anonymous form submission)
+# ---------------------------------------------------------------------------
+@api.get("/diagnostic/questions")
+async def diagnostic_questions():
+    steps = sorted({q["step"] for q in QUESTIONS})
+    return {
+        "steps": [
+            {
+                "step": s,
+                "title": {
+                    1: "Tu empresa",
+                    2: "Presencia digital",
+                    3: "Procesos y herramientas",
+                    4: "Atención al cliente",
+                    5: "Marketing y ventas",
+                }.get(s, f"Paso {s}"),
+                "questions": [q for q in QUESTIONS if q["step"] == s],
+            }
+            for s in steps
+        ],
+        "total_steps": len(steps) + 1,  # +1 for contact step on the frontend
+    }
+
+
+@api.post("/diagnostic/submit")
+async def diagnostic_submit(payload: DiagnosticSubmit):
+    answers_dicts = [a.model_dump() for a in payload.answers]
+    scores, maturity = compute_scores(answers_dicts)
+    recos = recommend_services(answers_dicts, scores)
+    estimated_value = estimate_lead_value(recos)
+
+    summary = await generate_diagnostic_summary(
+        company_name=payload.company_name,
+        industry=payload.industry,
+        company_size=payload.company_size,
+        scores=scores,
+        maturity=maturity,
+        recommendations=recos,
+    )
+
+    # Create or update a lead by email
+    existing_doc = await db.leads.find_one({"contact_email": payload.contact_email.lower()})
+    if existing_doc:
+        lead = Lead.from_mongo(existing_doc)
+        lead.company_name = payload.company_name
+        lead.contact_name = payload.contact_name
+        lead.contact_phone = payload.contact_phone or lead.contact_phone
+        lead.contact_role = payload.contact_role or lead.contact_role
+        lead.industry = payload.industry or lead.industry
+        lead.company_size = payload.company_size or lead.company_size
+        lead.maturity_score = maturity
+        lead.estimated_value = estimated_value
+        lead.requested_services = [r["service"] for r in recos]
+        if lead.status == "nuevo":
+            lead.status = "diagnostico_completo"
+        lead.activities.append(LeadActivity(
+            type="diagnostic",
+            description=f"Diagnóstico actualizado. Madurez: {maturity}%",
+        ))
+        lead.updated_at = datetime.now(timezone.utc)
+        await db.leads.replace_one({"id": lead.id}, lead.to_mongo())
+    else:
+        lead = Lead(
+            company_name=payload.company_name,
+            contact_name=payload.contact_name,
+            contact_email=payload.contact_email.lower(),
+            contact_phone=payload.contact_phone,
+            contact_role=payload.contact_role,
+            industry=payload.industry,
+            company_size=payload.company_size,
+            status="diagnostico_completo",
+            source="diagnostic",
+            estimated_value=estimated_value,
+            maturity_score=maturity,
+            requested_services=[r["service"] for r in recos],
+            activities=[LeadActivity(
+                type="diagnostic",
+                description=f"Diagnóstico completado. Madurez: {maturity}%",
+            )],
+        )
+        await db.leads.insert_one(lead.to_mongo())
+
+    diag = Diagnostic(
+        company_name=payload.company_name,
+        industry=payload.industry,
+        company_size=payload.company_size,
+        contact_name=payload.contact_name,
+        contact_email=payload.contact_email.lower(),
+        contact_phone=payload.contact_phone,
+        contact_role=payload.contact_role,
+        answers=payload.answers,
+        scores=scores,
+        maturity_score=maturity,
+        recommendations=recos,
+        ai_summary=summary,
+        lead_id=lead.id,
+        completed=True,
+    )
+    await db.diagnostics.insert_one(diag.to_mongo())
+
+    # link lead
+    await db.leads.update_one({"id": lead.id}, {"$set": {"diagnostic_id": diag.id}})
+
+    return {
+        "diagnostic_id": diag.id,
+        "lead_id": lead.id,
+        "scores": scores,
+        "maturity_score": maturity,
+        "recommendations": recos,
+        "ai_summary": summary,
+        "estimated_value": estimated_value,
+    }
+
+
+@api.get("/diagnostic/{diagnostic_id}")
+async def get_diagnostic(diagnostic_id: str):
+    doc = await db.diagnostics.find_one({"id": diagnostic_id}, {"_id": 0})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Diagnóstico no encontrado")
+    return doc
+
+
+# ---------------------------------------------------------------------------
+# CRM Leads
+# ---------------------------------------------------------------------------
+@api.get("/leads")
+async def list_leads(status: Optional[str] = None, _: User = Depends(get_current_user)):
+    q: dict = {}
+    if status:
+        q["status"] = status
+    docs = await db.leads.find(q, {"_id": 0}).sort("created_at", -1).to_list(1000)
+    return docs
+
+
+@api.get("/leads/kanban")
+async def kanban(_: User = Depends(get_current_user)):
+    docs = await db.leads.find({}, {"_id": 0}).sort("created_at", -1).to_list(2000)
+    grouped = {s: [] for s in LEAD_STATUSES}
+    for d in docs:
+        s = d.get("status", "nuevo")
+        if s in grouped:
+            grouped[s].append(d)
+    return {"columns": grouped, "statuses": LEAD_STATUSES}
+
+
+@api.post("/leads")
+async def create_lead(payload: LeadCreate, user: User = Depends(get_current_user)):
+    if payload.status not in LEAD_STATUSES:
+        raise HTTPException(status_code=400, detail="Estado inválido")
+    lead = Lead(
+        **payload.model_dump(),
+        owner_id=user.id,
+        activities=[LeadActivity(type="status_change",
+                                 description=f"Lead creado por {user.name}")],
+    )
+    await db.leads.insert_one(lead.to_mongo())
+    return lead.model_dump()
+
+
+@api.get("/leads/{lead_id}")
+async def get_lead(lead_id: str, _: User = Depends(get_current_user)):
+    doc = await db.leads.find_one({"id": lead_id}, {"_id": 0})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Lead no encontrado")
+    return doc
+
+
+@api.patch("/leads/{lead_id}")
+async def update_lead(lead_id: str, payload: LeadUpdate, user: User = Depends(get_current_user)):
+    doc = await db.leads.find_one({"id": lead_id})
+    lead = Lead.from_mongo(doc)
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead no encontrado")
+    upd = payload.model_dump(exclude_none=True)
+    if "status" in upd and upd["status"] != lead.status:
+        if upd["status"] not in LEAD_STATUSES:
+            raise HTTPException(status_code=400, detail="Estado inválido")
+        lead.activities.append(LeadActivity(
+            type="status_change",
+            description=f"{user.name} cambió estado de {lead.status} a {upd['status']}",
+        ))
+    for k, v in upd.items():
+        setattr(lead, k, v)
+    lead.updated_at = datetime.now(timezone.utc)
+    await db.leads.replace_one({"id": lead.id}, lead.to_mongo())
+    return lead.model_dump()
+
+
+@api.delete("/leads/{lead_id}")
+async def delete_lead(lead_id: str, _: User = Depends(require_admin)):
+    await db.leads.delete_one({"id": lead_id})
+    return {"deleted": True}
+
+
+@api.post("/leads/{lead_id}/notes")
+async def add_note(lead_id: str, payload: NoteCreate, user: User = Depends(get_current_user)):
+    doc = await db.leads.find_one({"id": lead_id})
+    lead = Lead.from_mongo(doc)
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead no encontrado")
+    note = LeadNote(author_id=user.id, author_name=user.name, text=payload.text)
+    lead.notes.append(note)
+    lead.activities.append(LeadActivity(type="note", description=f"{user.name} agregó una nota"))
+    lead.updated_at = datetime.now(timezone.utc)
+    await db.leads.replace_one({"id": lead.id}, lead.to_mongo())
+    return note.model_dump()
+
+
+# ---------------------------------------------------------------------------
+# Meetings
+# ---------------------------------------------------------------------------
+@api.get("/meetings")
+async def list_meetings(lead_id: Optional[str] = None, _: User = Depends(get_current_user)):
+    q: dict = {}
+    if lead_id:
+        q["lead_id"] = lead_id
+    docs = await db.meetings.find(q, {"_id": 0}).sort("scheduled_at", 1).to_list(1000)
+    return docs
+
+
+@api.post("/meetings")
+async def create_meeting(payload: MeetingCreate, user: User = Depends(get_current_user)):
+    lead_doc = await db.leads.find_one({"id": payload.lead_id})
+    if not lead_doc:
+        raise HTTPException(status_code=404, detail="Lead no encontrado")
+    m = Meeting(**payload.model_dump(), owner_id=user.id)
+    await db.meetings.insert_one(m.to_mongo())
+    # mark lead as reunion_agendada
+    lead = Lead.from_mongo(lead_doc)
+    if lead.status in ("nuevo", "contactado", "diagnostico_completo"):
+        lead.status = "reunion_agendada"
+    lead.activities.append(LeadActivity(
+        type="meeting",
+        description=f"{user.name} agendó reunión para {m.scheduled_at.isoformat()}",
+    ))
+    lead.updated_at = datetime.now(timezone.utc)
+    await db.leads.replace_one({"id": lead.id}, lead.to_mongo())
+    return m.model_dump()
+
+
+@api.patch("/meetings/{meeting_id}")
+async def update_meeting(meeting_id: str, payload: MeetingUpdate, _: User = Depends(get_current_user)):
+    doc = await db.meetings.find_one({"id": meeting_id})
+    m = Meeting.from_mongo(doc)
+    if not m:
+        raise HTTPException(status_code=404, detail="Reunión no encontrada")
+    upd = payload.model_dump(exclude_none=True)
+    for k, v in upd.items():
+        setattr(m, k, v)
+    m.updated_at = datetime.now(timezone.utc)
+    await db.meetings.replace_one({"id": m.id}, m.to_mongo())
+    return m.model_dump()
+
+
+@api.delete("/meetings/{meeting_id}")
+async def delete_meeting(meeting_id: str, _: User = Depends(get_current_user)):
+    await db.meetings.delete_one({"id": meeting_id})
+    return {"deleted": True}
+
+
+# ---------------------------------------------------------------------------
+# Proposals
+# ---------------------------------------------------------------------------
+def _compute_totals(items: list[ProposalItem], tax_rate: float) -> tuple[float, float, float]:
+    for it in items:
+        it.total = round(it.quantity * it.unit_price, 2)
+    subtotal = round(sum(i.total for i in items), 2)
+    tax = round(subtotal * tax_rate, 2)
+    total = round(subtotal + tax, 2)
+    return subtotal, tax, total
+
+
+@api.get("/proposals")
+async def list_proposals(lead_id: Optional[str] = None, _: User = Depends(get_current_user)):
+    q: dict = {}
+    if lead_id:
+        q["lead_id"] = lead_id
+    docs = await db.proposals.find(q, {"_id": 0}).sort("created_at", -1).to_list(500)
+    return docs
+
+
+@api.post("/proposals/generate")
+async def generate_proposal(payload: ProposalGenerateRequest, user: User = Depends(get_current_user)):
+    lead_doc = await db.leads.find_one({"id": payload.lead_id})
+    lead = Lead.from_mongo(lead_doc)
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead no encontrado")
+    catalog = [
+        {"name": name, "category": info["category"], "base_price": info["base_price"],
+         "description": info["description"]}
+        for name, info in SERVICE_CATALOG.items()
+    ]
+    content = await generate_proposal_content(
+        company_name=lead.company_name,
+        industry=lead.industry,
+        services=payload.services,
+        notes=payload.notes or "",
+        services_catalog=catalog,
+    )
+    items = [ProposalItem(**it) for it in content.get("items", [])]
+    phases = [ProposalPhase(**p) for p in content.get("phases", [])]
+    subtotal, tax, total = _compute_totals(items, 0.12)
+    proposal = Proposal(
+        lead_id=lead.id,
+        title=content.get("title") or f"Propuesta {lead.company_name}",
+        summary=content.get("summary"),
+        scope=content.get("scope"),
+        objectives=content.get("objectives", []),
+        items=items,
+        phases=phases,
+        subtotal=subtotal,
+        tax=tax,
+        total=total,
+        currency="USD",
+        generated_by_ai=True,
+        status="draft",
+    )
+    await db.proposals.insert_one(proposal.to_mongo())
+
+    lead.activities.append(LeadActivity(
+        type="proposal", description=f"Propuesta generada por IA: {proposal.title}",
+    ))
+    lead.updated_at = datetime.now(timezone.utc)
+    await db.leads.replace_one({"id": lead.id}, lead.to_mongo())
+    return proposal.model_dump()
+
+
+@api.get("/proposals/{proposal_id}")
+async def get_proposal(proposal_id: str, _: User = Depends(get_current_user)):
+    doc = await db.proposals.find_one({"id": proposal_id}, {"_id": 0})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Propuesta no encontrada")
+    return doc
+
+
+@api.patch("/proposals/{proposal_id}")
+async def update_proposal(proposal_id: str, payload: ProposalUpdate, user: User = Depends(get_current_user)):
+    doc = await db.proposals.find_one({"id": proposal_id})
+    proposal = Proposal.from_mongo(doc)
+    if not proposal:
+        raise HTTPException(status_code=404, detail="Propuesta no encontrada")
+    upd = payload.model_dump(exclude_none=True)
+    for k, v in upd.items():
+        if k == "items":
+            proposal.items = [ProposalItem(**i) for i in v]
+        elif k == "phases":
+            proposal.phases = [ProposalPhase(**p) for p in v]
+        else:
+            setattr(proposal, k, v)
+    subtotal, tax, total = _compute_totals(proposal.items, proposal.tax_rate)
+    proposal.subtotal, proposal.tax, proposal.total = subtotal, tax, total
+    proposal.updated_at = datetime.now(timezone.utc)
+    await db.proposals.replace_one({"id": proposal.id}, proposal.to_mongo())
+
+    # if marked as sent → update lead
+    if upd.get("status") == "sent":
+        lead_doc = await db.leads.find_one({"id": proposal.lead_id})
+        lead = Lead.from_mongo(lead_doc)
+        if lead and lead.status not in ("ganado", "perdido"):
+            lead.status = "propuesta_enviada"
+            lead.activities.append(LeadActivity(
+                type="proposal", description=f"{user.name} envió la propuesta {proposal.title}",
+            ))
+            lead.updated_at = datetime.now(timezone.utc)
+            await db.leads.replace_one({"id": lead.id}, lead.to_mongo())
+    return proposal.model_dump()
+
+
+@api.get("/proposals/{proposal_id}/pdf")
+async def proposal_pdf(proposal_id: str, _: User = Depends(get_current_user)):
+    doc = await db.proposals.find_one({"id": proposal_id}, {"_id": 0})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Propuesta no encontrada")
+    lead_doc = await db.leads.find_one({"id": doc["lead_id"]}, {"_id": 0}) or {}
+    pdf = build_proposal_pdf(doc, lead_doc)
+    filename = f"propuesta-{doc.get('title','propuesta').replace(' ', '_')}.pdf"
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="{filename}"'},
+    )
+
+
+# ---------------------------------------------------------------------------
+# Services (catalog)
+# ---------------------------------------------------------------------------
+@api.get("/services")
+async def list_services(_: User = Depends(get_current_user)):
+    docs = await db.services.find({}, {"_id": 0}).sort("name", 1).to_list(200)
+    return docs
+
+
+@api.post("/services")
+async def create_service(payload: ServiceCreate, _: User = Depends(require_admin)):
+    if await db.services.find_one({"code": payload.code}):
+        raise HTTPException(status_code=400, detail="Código ya existe")
+    s = Service(**payload.model_dump())
+    await db.services.insert_one(s.to_mongo())
+    return s.model_dump()
+
+
+@api.patch("/services/{service_id}")
+async def update_service(service_id: str, payload: ServiceUpdate, _: User = Depends(require_admin)):
+    doc = await db.services.find_one({"id": service_id})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Servicio no encontrado")
+    upd = payload.model_dump(exclude_none=True)
+    upd["updated_at"] = datetime.now(timezone.utc).isoformat()
+    await db.services.update_one({"id": service_id}, {"$set": upd})
+    doc = await db.services.find_one({"id": service_id}, {"_id": 0})
+    return doc
+
+
+@api.delete("/services/{service_id}")
+async def delete_service(service_id: str, _: User = Depends(require_admin)):
+    await db.services.delete_one({"id": service_id})
+    return {"deleted": True}
+
+
+# ---------------------------------------------------------------------------
+# Dashboard analytics
+# ---------------------------------------------------------------------------
+@api.get("/dashboard/overview")
+async def dashboard_overview(_: User = Depends(get_current_user)):
+    leads = await db.leads.find({}, {"_id": 0}).to_list(5000)
+    total_leads = len(leads)
+    won = sum(1 for ld in leads if ld.get("status") == "ganado")
+    lost = sum(1 for ld in leads if ld.get("status") == "perdido")
+    closed = won + lost
+    conversion_rate = round((won / closed) * 100, 1) if closed else 0.0
+    pipeline_value = round(sum(
+        ld.get("estimated_value", 0) for ld in leads
+        if ld.get("status") not in ("ganado", "perdido")
+    ), 2)
+    won_value = round(sum(ld.get("estimated_value", 0) for ld in leads if ld.get("status") == "ganado"), 2)
+
+    # funnel
+    funnel = []
+    for s in LEAD_STATUSES:
+        funnel.append({
+            "status": s,
+            "count": sum(1 for ld in leads if ld.get("status") == s),
+        })
+
+    # services demand
+    svc_count: dict[str, int] = {}
+    for ld in leads:
+        for svc in ld.get("requested_services", []) or []:
+            svc_count[svc] = svc_count.get(svc, 0) + 1
+    services_demand = sorted(
+        [{"service": k, "count": v} for k, v in svc_count.items()],
+        key=lambda x: -x["count"],
+    )
+
+    # leads per month (last 6 months)
+    from collections import OrderedDict
+    months: "OrderedDict[str, int]" = OrderedDict()
+    now = datetime.now(timezone.utc)
+    for i in range(5, -1, -1):
+        m = (now.month - i - 1) % 12 + 1
+        y = now.year + (now.month - i - 1) // 12
+        months[f"{y}-{m:02d}"] = 0
+    for ld in leads:
+        ts = ld.get("created_at")
+        if isinstance(ts, str):
+            try:
+                dt = datetime.fromisoformat(ts)
+                key = f"{dt.year}-{dt.month:02d}"
+                if key in months:
+                    months[key] += 1
+            except ValueError:
+                pass
+    trend = [{"month": k, "count": v} for k, v in months.items()]
+
+    avg_maturity = round(
+        sum(ld.get("maturity_score", 0) for ld in leads) / total_leads, 1
+    ) if total_leads else 0.0
+
+    return {
+        "total_leads": total_leads,
+        "conversion_rate": conversion_rate,
+        "won_count": won,
+        "lost_count": lost,
+        "pipeline_value": pipeline_value,
+        "won_value": won_value,
+        "avg_maturity_score": avg_maturity,
+        "funnel": funnel,
+        "services_demand": services_demand,
+        "leads_trend": trend,
+    }
+
+
+app.include_router(api)
 
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
-    allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
+    allow_origins=os.environ.get("CORS_ORIGINS", "*").split(","),
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
-
-@app.on_event("shutdown")
-async def shutdown_db_client():
-    client.close()
