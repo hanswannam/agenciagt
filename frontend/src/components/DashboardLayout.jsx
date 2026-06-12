@@ -36,6 +36,13 @@ export default function DashboardLayout() {
               <div className="text-[10px] tracking-[0.2em] uppercase text-white/60">Growth System</div>
             </div>
           </Link>
+          {user?.workspace && (
+            <div className="mt-4 px-3 py-2 rounded-lg bg-white/5 border border-white/10" data-testid="sidebar-workspace">
+              <div className="text-[10px] uppercase tracking-[0.2em] text-white/50 font-bold">Workspace</div>
+              <div className="text-sm font-semibold truncate">{user.workspace.name}</div>
+              <div className="text-[10px] text-brand-orange font-mono truncate">/diagnostico/w/{user.workspace.slug}</div>
+            </div>
+          )}
         </div>
         <nav className="flex-1 px-3 py-4 space-y-1">
           {links.map((l) => (

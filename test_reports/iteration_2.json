@@ -1,0 +1,37 @@
+{
+  "summary": "Backend Phase 2 multi-tenant testing. All 63 pytest tests passed (100%) — 36 regression (preserved from iteration_1) + 27 new multi-tenant. Verified: signup creates workspace+admin+seeds 7 services with starter plan; duplicate slug/email = 400; invalid slug (uppercase/spaces) = 422; /auth/me and /workspaces/me return workspace object; cross-workspace isolation for leads/proposals/meetings/services (404 on cross-access, services disjoint between workspaces); diagnostic submit ?workspace=acme creates lead in acme + returns workspace_slug=acme; default workspace = innovagraf preserves backward compat; nonexistent workspace = 404; admin user creation scoped to workspace; super_admin role escalation blocked on UserCreate & UserUpdate (400); admin list scoped (innovagraf admin not visible to acme admin); dashboard /api/dashboard/overview scoped per workspace; migration: seeded innovagraf admin/ventas/services have workspace_id populated.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "require_admin in /app/backend/auth.py", "issue": "Initially only allowed role=='admin', which would block the new super_admin seed from /admin/* routes (as flagged in the review). Fixed by allowing role in ('admin','super_admin')."}
+    ]
+  },
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_innovagraf_backend.py",
+    "/app/backend/tests/test_multitenant.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Auth: require_admin now treats super_admin and admin equivalently. Consider modelling permissions explicitly (e.g. require_super_admin) so admin of a workspace cannot be confused with platform-level super_admin in future features.",
+    "Signup endpoint always creates user with role='admin' (not 'super_admin'), correct. workspace owner_id is set after the user insert via a second write — could be merged into one insert for atomicity.",
+    "/api/diagnostic/{id} remains public — still leaks PII by id; carryover from iteration_1.",
+    "Backfill migration runs on every startup and scans 6 collections — fine at MVP scale, but consider gating with a one-shot flag or limiting to a single startup migration.",
+    "ws_filter is consistently applied to every workspace-scoped query (good). Cross-workspace tests confirm isolation works on read & write paths.",
+    "Code review of models.py: Workspace, SignupRequest, WorkspacePublic added correctly. SignupRequest slug pattern '^[a-z0-9-]+$' enforces lowercase/no-spaces at the Pydantic layer (422).",
+    "Minor: services seeded by signup use code = name.lower().replace(' ', '_'); if the same workspace later signs up two services with similar names, collisions could occur — protected only by per-workspace unique check at create."
+  ],
+  "updated_files": [
+    "/app/backend/auth.py (require_admin now allows admin OR super_admin)",
+    "/app/backend/tests/test_innovagraf_backend.py (role assertions broadened to admin|super_admin)",
+    "/app/backend/tests/test_multitenant.py (new — 27 multi-tenant tests)"
+  ],
+  "success_rate": {"backend": "100% (63/63)", "frontend": "not in scope"},
+  "test_credentials": "admin@innovagraf.com / Innovagraf2026! (super_admin in innovagraf); ventas@innovagraf.com / Ventas2026! (comercial in innovagraf). New Acme workspace + admin created per run with timestamp-suffixed slug acme<unix_ts>.",
+  "seed_data_creation": "Each run creates a fresh Acme workspace (slug acme<timestamp>), one Acme admin, one diagnostic-derived lead in innovagraf, one in acme, and TEST_-prefixed manual leads/services/users. Acme test users are cleaned up; workspaces and diagnostic leads remain (acceptable for MVP).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Run full regression with: pytest /app/backend/tests/ -v. Tests share module-level state (pytest._diag_id etc.) so respect declared order. Each new run creates a new acme<ts> workspace; old ones accumulate in DB and are not cleaned. If duplicates from previous runs cause issues, drop workspaces collection or wipe slugs starting with 'acme'. Frontend integration of /api/auth/signup + workspace switching is the next likely test area.",
+  "rca of the issue": "Single deviation from spec was require_admin gating on role=='admin' only — would have blocked super_admin (the new role for the seeded innovagraf admin) from all /admin/* endpoints. Fix applied in auth.py per review_request guidance: role in ('admin','super_admin'). All 36 regression tests still pass."
+}

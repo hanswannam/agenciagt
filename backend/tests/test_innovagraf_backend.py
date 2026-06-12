@@ -53,7 +53,7 @@ def admin_token(session):
                      timeout=30)
     assert r.status_code == 200, f"admin login failed {r.status_code}: {r.text}"
     data = r.json()
-    assert "token" in data and data["user"]["role"] == "admin"
+    assert "token" in data and data["user"]["role"] in ("admin", "super_admin")
     return data["token"]
 
 
@@ -93,7 +93,7 @@ class TestAuth:
         d = r.json()
         assert isinstance(d["token"], str) and len(d["token"]) > 10
         assert d["user"]["email"] == ADMIN_EMAIL
-        assert d["user"]["role"] == "admin"
+        assert d["user"]["role"] in ("admin", "super_admin")
 
     def test_login_sales(self, session):
         r = session.post(f"{API}/auth/login",

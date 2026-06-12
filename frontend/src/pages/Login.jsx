@@ -104,6 +104,12 @@ export default function Login() {
             Demo: <code className="px-1.5 py-0.5 rounded bg-black/5">admin@innovagraf.com</code> /{" "}
             <code className="px-1.5 py-0.5 rounded bg-black/5">Innovagraf2026!</code>
           </div>
+          <p className="mt-6 text-sm text-brand-midnight/60 text-center">
+            ¿Aún no tienes workspace?{" "}
+            <Link to="/signup" className="text-brand-orange font-semibold hover:underline" data-testid="login-to-signup">
+              Crear uno gratis
+            </Link>
+          </p>
         </form>
       </div>
     </div>

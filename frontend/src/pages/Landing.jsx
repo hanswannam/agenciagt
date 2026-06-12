@@ -77,6 +77,9 @@ export default function Landing() {
             <Link to="/login" className="hover:text-brand-orange transition" data-testid="landing-login-link">
               Login
             </Link>
+            <Link to="/signup" className="hover:text-brand-orange transition" data-testid="landing-signup-link">
+              Crear workspace
+            </Link>
           </nav>
           <Link to="/diagnostico" data-testid="landing-cta-nav">
             <Button className="bg-brand-orange hover:bg-brand-orangeDark text-white rounded-full px-5">

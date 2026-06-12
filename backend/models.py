@@ -51,14 +51,38 @@ class BaseDocument(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Workspace (tenant)
+# ---------------------------------------------------------------------------
+class Workspace(BaseDocument):
+    slug: str
+    name: str
+    owner_id: Optional[str] = None
+    plan: str = "starter"  # starter | pro | enterprise
+    settings: dict[str, Any] = Field(default_factory=dict)
+
+
+class WorkspaceCreate(BaseModel):
+    name: str
+    slug: str
+
+
+class WorkspacePublic(BaseModel):
+    id: str
+    slug: str
+    name: str
+    plan: str
+
+
+# ---------------------------------------------------------------------------
 # Users / Auth
 # ---------------------------------------------------------------------------
 class User(BaseDocument):
     email: EmailStr
     name: str
-    role: str = "comercial"  # admin | comercial
+    role: str = "comercial"  # super_admin | admin | comercial
     password_hash: str
     active: bool = True
+    workspace_id: str = ""
 
 
 class UserPublic(BaseModel):
@@ -67,6 +91,8 @@ class UserPublic(BaseModel):
     name: str
     role: str
     active: bool
+    workspace_id: str = ""
+    workspace: Optional[WorkspacePublic] = None
     created_at: datetime
 
 
@@ -89,6 +115,14 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class SignupRequest(BaseModel):
+    workspace_name: str = Field(min_length=2)
+    workspace_slug: str = Field(min_length=2, pattern=r"^[a-z0-9-]+$")
+    admin_name: str
+    admin_email: EmailStr
+    admin_password: str = Field(min_length=6)
+
+
 class TokenResponse(BaseModel):
     token: str
     user: UserPublic
@@ -103,6 +137,7 @@ class DiagnosticAnswer(BaseModel):
 
 
 class Diagnostic(BaseDocument):
+    workspace_id: str = ""
     company_name: str
     industry: Optional[str] = None
     company_size: Optional[str] = None
@@ -173,6 +208,7 @@ class LeadActivity(BaseModel):
 
 
 class Lead(BaseDocument):
+    workspace_id: str = ""
     company_name: str
     contact_name: str
     contact_email: EmailStr
@@ -226,6 +262,7 @@ class NoteCreate(BaseModel):
 # Meetings
 # ---------------------------------------------------------------------------
 class Meeting(BaseDocument):
+    workspace_id: str = ""
     lead_id: str
     title: str
     description: Optional[str] = None
@@ -274,6 +311,7 @@ class ProposalPhase(BaseModel):
 
 
 class Proposal(BaseDocument):
+    workspace_id: str = ""
     lead_id: str
     title: str
     summary: Optional[str] = None
@@ -312,6 +350,7 @@ class ProposalUpdate(BaseModel):
 # Catalog / Services
 # ---------------------------------------------------------------------------
 class Service(BaseDocument):
+    workspace_id: str = ""
     code: str
     name: str
     description: str

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -80,7 +80,9 @@ export default function Diagnostic() {
         contact_role: contact.contact_role || null,
         answers: Object.entries(answers).map(([question_id, value]) => ({ question_id, value })),
       };
-      const { data } = await api.post("/diagnostic/submit", payload);
+      const { data } = await api.post("/diagnostic/submit", payload, {
+        params: slug ? { workspace: slug } : {},
+      });
       localStorage.removeItem(STORAGE_KEY);
       toast.success("Diagnóstico procesado", { description: "Revisa tus recomendaciones." });
       navigate(`/diagnostico/resultado/${data.diagnostic_id}`);
@@ -311,6 +313,10 @@ function QuestionField({ question, value, onChange }) {
           })}
         </div>
       )}
+    </div>
+  );
+}
+)}
     </div>
   );
 }

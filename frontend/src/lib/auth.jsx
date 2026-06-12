@@ -16,7 +16,7 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     const token = localStorage.getItem("innovagraf_token");
-    if (token && !user) {
+    if (token) {
       api
         .get("/auth/me")
         .then((r) => {
@@ -26,6 +26,7 @@ export function AuthProvider({ children }) {
         .catch(() => {
           localStorage.removeItem("innovagraf_token");
           localStorage.removeItem("innovagraf_user");
+          setUser(null);
         })
         .finally(() => setLoading(false));
     } else {

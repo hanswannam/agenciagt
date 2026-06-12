@@ -54,11 +54,15 @@ from models import (  # noqa: E402
     Service,
     ServiceCreate,
     ServiceUpdate,
+    SignupRequest,
     TokenResponse,
     User,
     UserCreate,
     UserPublic,
     UserUpdate,
+    Workspace,
+    WorkspaceCreate,
+    WorkspacePublic,
     LEAD_STATUSES,
 )
 
@@ -69,12 +73,43 @@ logger = logging.getLogger("innovagraf")
 app = FastAPI(title="Innovagraf Growth System API")
 api = APIRouter(prefix="/api")
 
+DEFAULT_WORKSPACE_SLUG = "innovagraf"
 
-def to_public(user: User) -> UserPublic:
+
+async def _get_workspace_by_id(workspace_id: str) -> Workspace | None:
+    if not workspace_id:
+        return None
+    doc = await db.workspaces.find_one({"id": workspace_id})
+    return Workspace.from_mongo(doc)
+
+
+async def _get_workspace_by_slug(slug: str) -> Workspace | None:
+    doc = await db.workspaces.find_one({"slug": slug.lower()})
+    return Workspace.from_mongo(doc)
+
+
+async def _workspace_public(workspace_id: str) -> WorkspacePublic | None:
+    ws = await _get_workspace_by_id(workspace_id)
+    if not ws:
+        return None
+    return WorkspacePublic(id=ws.id, slug=ws.slug, name=ws.name, plan=ws.plan)
+
+
+async def to_public(user: User) -> UserPublic:
+    ws = await _workspace_public(user.workspace_id) if user.workspace_id else None
     return UserPublic(
         id=user.id, email=user.email, name=user.name,
         role=user.role, active=user.active, created_at=user.created_at,
+        workspace_id=user.workspace_id, workspace=ws,
     )
+
+
+def ws_filter(user: User, extra: dict | None = None) -> dict:
+    """Filter dict scoped to the user's workspace."""
+    f: dict = {"workspace_id": user.workspace_id}
+    if extra:
+        f.update(extra)
+    return f
 
 
 # ---------------------------------------------------------------------------
@@ -82,15 +117,30 @@ def to_public(user: User) -> UserPublic:
 # ---------------------------------------------------------------------------
 @app.on_event("startup")
 async def startup() -> None:
+    # default workspace
+    ws_doc = await db.workspaces.find_one({"slug": DEFAULT_WORKSPACE_SLUG})
+    if not ws_doc:
+        ws = Workspace(
+            slug=DEFAULT_WORKSPACE_SLUG,
+            name="Innovagraf",
+            plan="enterprise",
+        )
+        await db.workspaces.insert_one(ws.to_mongo())
+        default_ws_id = ws.id
+        logger.info("Seeded default workspace 'innovagraf'")
+    else:
+        default_ws_id = ws_doc["id"]
+
     # default admin
     admin = await db.users.find_one({"email": "admin@innovagraf.com"})
     if not admin:
         u = User(
             email="admin@innovagraf.com",
             name="Administrador Innovagraf",
-            role="admin",
+            role="super_admin",
             password_hash=hash_password("Innovagraf2026!"),
             active=True,
+            workspace_id=default_ws_id,
         )
         await db.users.insert_one(u.to_mongo())
         logger.info("Seeded default admin user")
@@ -103,12 +153,13 @@ async def startup() -> None:
             role="comercial",
             password_hash=hash_password("Ventas2026!"),
             active=True,
+            workspace_id=default_ws_id,
         )
         await db.users.insert_one(u.to_mongo())
         logger.info("Seeded default sales user")
 
     # default services
-    if await db.services.count_documents({}) == 0:
+    if await db.services.count_documents({"workspace_id": default_ws_id}) == 0:
         for name, info in SERVICE_CATALOG.items():
             svc = Service(
                 code=name.lower().replace(" ", "_"),
@@ -116,9 +167,19 @@ async def startup() -> None:
                 category=info["category"],
                 description=info["description"],
                 base_price=info["base_price"],
+                workspace_id=default_ws_id,
             )
             await db.services.insert_one(svc.to_mongo())
         logger.info("Seeded default service catalog")
+
+    # backfill: assign default workspace_id to any orphan docs (multi-tenant migration)
+    for coll in ("users", "leads", "diagnostics", "meetings", "proposals", "services"):
+        res = await db[coll].update_many(
+            {"$or": [{"workspace_id": {"$exists": False}}, {"workspace_id": ""}, {"workspace_id": None}]},
+            {"$set": {"workspace_id": default_ws_id}},
+        )
+        if res.modified_count:
+            logger.info("Migrated %s docs in %s to default workspace", res.modified_count, coll)
 
 
 @app.on_event("shutdown")
@@ -146,57 +207,112 @@ async def login(payload: LoginRequest):
     if not user.active:
         raise HTTPException(status_code=403, detail="Usuario inactivo")
     token = create_token(user.id, user.role)
-    return TokenResponse(token=token, user=to_public(user))
+    return TokenResponse(token=token, user=await to_public(user))
+
+
+@api.post("/auth/signup", response_model=TokenResponse)
+async def signup(payload: SignupRequest):
+    slug = payload.workspace_slug.lower()
+    if await db.workspaces.find_one({"slug": slug}):
+        raise HTTPException(status_code=400, detail="El slug ya está en uso")
+    if await db.users.find_one({"email": payload.admin_email.lower()}):
+        raise HTTPException(status_code=400, detail="Email ya registrado")
+
+    ws = Workspace(slug=slug, name=payload.workspace_name, plan="starter")
+    await db.workspaces.insert_one(ws.to_mongo())
+
+    user = User(
+        email=payload.admin_email.lower(),
+        name=payload.admin_name,
+        role="admin",
+        password_hash=hash_password(payload.admin_password),
+        active=True,
+        workspace_id=ws.id,
+    )
+    await db.users.insert_one(user.to_mongo())
+
+    # update workspace owner
+    await db.workspaces.update_one({"id": ws.id}, {"$set": {"owner_id": user.id}})
+
+    # seed services for new workspace
+    for name, info in SERVICE_CATALOG.items():
+        svc = Service(
+            code=name.lower().replace(" ", "_"),
+            name=name,
+            category=info["category"],
+            description=info["description"],
+            base_price=info["base_price"],
+            workspace_id=ws.id,
+        )
+        await db.services.insert_one(svc.to_mongo())
+
+    token = create_token(user.id, user.role)
+    return TokenResponse(token=token, user=await to_public(user))
 
 
 @api.get("/auth/me", response_model=UserPublic)
 async def me(user: User = Depends(get_current_user)):
-    return to_public(user)
+    return await to_public(user)
+
+
+@api.get("/workspaces/me", response_model=WorkspacePublic)
+async def my_workspace(user: User = Depends(get_current_user)):
+    ws = await _get_workspace_by_id(user.workspace_id)
+    if not ws:
+        raise HTTPException(status_code=404, detail="Workspace no encontrado")
+    return WorkspacePublic(id=ws.id, slug=ws.slug, name=ws.name, plan=ws.plan)
 
 
 # ---------------------------------------------------------------------------
 # Admin: users
 # ---------------------------------------------------------------------------
 @api.get("/admin/users", response_model=list[UserPublic])
-async def list_users(_: User = Depends(require_admin)):
-    docs = await db.users.find({}, {"_id": 0}).to_list(500)
-    return [to_public(User.from_mongo(d)) for d in docs]
+async def list_users(current: User = Depends(require_admin)):
+    docs = await db.users.find(ws_filter(current), {"_id": 0}).to_list(500)
+    return [await to_public(User.from_mongo(d)) for d in docs]
 
 
 @api.post("/admin/users", response_model=UserPublic)
-async def create_user(payload: UserCreate, _: User = Depends(require_admin)):
+async def create_user(payload: UserCreate, current: User = Depends(require_admin)):
     if await db.users.find_one({"email": payload.email.lower()}):
         raise HTTPException(status_code=400, detail="Email ya registrado")
+    if payload.role == "super_admin":
+        raise HTTPException(status_code=400, detail="Rol no permitido")
     u = User(
         email=payload.email.lower(),
         name=payload.name,
         role=payload.role,
         password_hash=hash_password(payload.password),
+        workspace_id=current.workspace_id,
     )
     await db.users.insert_one(u.to_mongo())
-    return to_public(u)
+    return await to_public(u)
 
 
 @api.patch("/admin/users/{user_id}", response_model=UserPublic)
-async def update_user(user_id: str, payload: UserUpdate, _: User = Depends(require_admin)):
-    doc = await db.users.find_one({"id": user_id})
+async def update_user(user_id: str, payload: UserUpdate, current: User = Depends(require_admin)):
+    doc = await db.users.find_one(ws_filter(current, {"id": user_id}))
     user = User.from_mongo(doc)
     if not user:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
     upd = payload.model_dump(exclude_none=True)
+    if upd.get("role") == "super_admin":
+        raise HTTPException(status_code=400, detail="Rol no permitido")
     if "password" in upd:
         upd["password_hash"] = hash_password(upd.pop("password"))
     upd["updated_at"] = datetime.now(timezone.utc).isoformat()
     await db.users.update_one({"id": user_id}, {"$set": upd})
     doc = await db.users.find_one({"id": user_id})
-    return to_public(User.from_mongo(doc))
+    return await to_public(User.from_mongo(doc))
 
 
 @api.delete("/admin/users/{user_id}")
 async def delete_user(user_id: str, current: User = Depends(require_admin)):
     if user_id == current.id:
         raise HTTPException(status_code=400, detail="No puedes eliminarte a ti mismo")
-    await db.users.delete_one({"id": user_id})
+    res = await db.users.delete_one(ws_filter(current, {"id": user_id}))
+    if res.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
     return {"deleted": True}
 
 
@@ -226,7 +342,13 @@ async def diagnostic_questions():
 
 
 @api.post("/diagnostic/submit")
-async def diagnostic_submit(payload: DiagnosticSubmit):
+async def diagnostic_submit(payload: DiagnosticSubmit, workspace: str | None = None):
+    slug = (workspace or DEFAULT_WORKSPACE_SLUG).lower()
+    ws = await _get_workspace_by_slug(slug)
+    if not ws:
+        raise HTTPException(status_code=404, detail="Workspace no encontrado")
+    workspace_id = ws.id
+
     answers_dicts = [a.model_dump() for a in payload.answers]
     scores, maturity = compute_scores(answers_dicts)
     recos = recommend_services(answers_dicts, scores)
@@ -241,8 +363,11 @@ async def diagnostic_submit(payload: DiagnosticSubmit):
         recommendations=recos,
     )
 
-    # Create or update a lead by email
-    existing_doc = await db.leads.find_one({"contact_email": payload.contact_email.lower()})
+    # Create or update a lead by email (scoped to workspace)
+    existing_doc = await db.leads.find_one({
+        "workspace_id": workspace_id,
+        "contact_email": payload.contact_email.lower(),
+    })
     if existing_doc:
         lead = Lead.from_mongo(existing_doc)
         lead.company_name = payload.company_name
@@ -264,6 +389,7 @@ async def diagnostic_submit(payload: DiagnosticSubmit):
         await db.leads.replace_one({"id": lead.id}, lead.to_mongo())
     else:
         lead = Lead(
+            workspace_id=workspace_id,
             company_name=payload.company_name,
             contact_name=payload.contact_name,
             contact_email=payload.contact_email.lower(),
@@ -284,6 +410,7 @@ async def diagnostic_submit(payload: DiagnosticSubmit):
         await db.leads.insert_one(lead.to_mongo())
 
     diag = Diagnostic(
+        workspace_id=workspace_id,
         company_name=payload.company_name,
         industry=payload.industry,
         company_size=payload.company_size,
@@ -307,6 +434,7 @@ async def diagnostic_submit(payload: DiagnosticSubmit):
     return {
         "diagnostic_id": diag.id,
         "lead_id": lead.id,
+        "workspace_slug": slug,
         "scores": scores,
         "maturity_score": maturity,
         "recommendations": recos,
@@ -327,8 +455,8 @@ async def get_diagnostic(diagnostic_id: str):
 # CRM Leads
 # ---------------------------------------------------------------------------
 @api.get("/leads")
-async def list_leads(status: Optional[str] = None, _: User = Depends(get_current_user)):
-    q: dict = {}
+async def list_leads(status: Optional[str] = None, user: User = Depends(get_current_user)):
+    q = ws_filter(user)
     if status:
         q["status"] = status
     docs = await db.leads.find(q, {"_id": 0}).sort("created_at", -1).to_list(1000)
@@ -336,8 +464,8 @@ async def list_leads(status: Optional[str] = None, _: User = Depends(get_current
 
 
 @api.get("/leads/kanban")
-async def kanban(_: User = Depends(get_current_user)):
-    docs = await db.leads.find({}, {"_id": 0}).sort("created_at", -1).to_list(2000)
+async def kanban(user: User = Depends(get_current_user)):
+    docs = await db.leads.find(ws_filter(user), {"_id": 0}).sort("created_at", -1).to_list(2000)
     grouped = {s: [] for s in LEAD_STATUSES}
     for d in docs:
         s = d.get("status", "nuevo")
@@ -353,6 +481,7 @@ async def create_lead(payload: LeadCreate, user: User = Depends(get_current_user
     lead = Lead(
         **payload.model_dump(),
         owner_id=user.id,
+        workspace_id=user.workspace_id,
         activities=[LeadActivity(type="status_change",
                                  description=f"Lead creado por {user.name}")],
     )
@@ -361,8 +490,8 @@ async def create_lead(payload: LeadCreate, user: User = Depends(get_current_user
 
 
 @api.get("/leads/{lead_id}")
-async def get_lead(lead_id: str, _: User = Depends(get_current_user)):
-    doc = await db.leads.find_one({"id": lead_id}, {"_id": 0})
+async def get_lead(lead_id: str, user: User = Depends(get_current_user)):
+    doc = await db.leads.find_one(ws_filter(user, {"id": lead_id}), {"_id": 0})
     if not doc:
         raise HTTPException(status_code=404, detail="Lead no encontrado")
     return doc
@@ -370,7 +499,7 @@ async def get_lead(lead_id: str, _: User = Depends(get_current_user)):
 
 @api.patch("/leads/{lead_id}")
 async def update_lead(lead_id: str, payload: LeadUpdate, user: User = Depends(get_current_user)):
-    doc = await db.leads.find_one({"id": lead_id})
+    doc = await db.leads.find_one(ws_filter(user, {"id": lead_id}))
     lead = Lead.from_mongo(doc)
     if not lead:
         raise HTTPException(status_code=404, detail="Lead no encontrado")
@@ -390,14 +519,16 @@ async def update_lead(lead_id: str, payload: LeadUpdate, user: User = Depends(ge
 
 
 @api.delete("/leads/{lead_id}")
-async def delete_lead(lead_id: str, _: User = Depends(require_admin)):
-    await db.leads.delete_one({"id": lead_id})
+async def delete_lead(lead_id: str, user: User = Depends(require_admin)):
+    res = await db.leads.delete_one(ws_filter(user, {"id": lead_id}))
+    if res.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Lead no encontrado")
     return {"deleted": True}
 
 
 @api.post("/leads/{lead_id}/notes")
 async def add_note(lead_id: str, payload: NoteCreate, user: User = Depends(get_current_user)):
-    doc = await db.leads.find_one({"id": lead_id})
+    doc = await db.leads.find_one(ws_filter(user, {"id": lead_id}))
     lead = Lead.from_mongo(doc)
     if not lead:
         raise HTTPException(status_code=404, detail="Lead no encontrado")
@@ -413,8 +544,8 @@ async def add_note(lead_id: str, payload: NoteCreate, user: User = Depends(get_c
 # Meetings
 # ---------------------------------------------------------------------------
 @api.get("/meetings")
-async def list_meetings(lead_id: Optional[str] = None, _: User = Depends(get_current_user)):
-    q: dict = {}
+async def list_meetings(lead_id: Optional[str] = None, user: User = Depends(get_current_user)):
+    q = ws_filter(user)
     if lead_id:
         q["lead_id"] = lead_id
     docs = await db.meetings.find(q, {"_id": 0}).sort("scheduled_at", 1).to_list(1000)
@@ -423,10 +554,10 @@ async def list_meetings(lead_id: Optional[str] = None, _: User = Depends(get_cur
 
 @api.post("/meetings")
 async def create_meeting(payload: MeetingCreate, user: User = Depends(get_current_user)):
-    lead_doc = await db.leads.find_one({"id": payload.lead_id})
+    lead_doc = await db.leads.find_one(ws_filter(user, {"id": payload.lead_id}))
     if not lead_doc:
         raise HTTPException(status_code=404, detail="Lead no encontrado")
-    m = Meeting(**payload.model_dump(), owner_id=user.id)
+    m = Meeting(**payload.model_dump(), owner_id=user.id, workspace_id=user.workspace_id)
     await db.meetings.insert_one(m.to_mongo())
     # mark lead as reunion_agendada
     lead = Lead.from_mongo(lead_doc)
@@ -442,8 +573,8 @@ async def create_meeting(payload: MeetingCreate, user: User = Depends(get_curren
 
 
 @api.patch("/meetings/{meeting_id}")
-async def update_meeting(meeting_id: str, payload: MeetingUpdate, _: User = Depends(get_current_user)):
-    doc = await db.meetings.find_one({"id": meeting_id})
+async def update_meeting(meeting_id: str, payload: MeetingUpdate, user: User = Depends(get_current_user)):
+    doc = await db.meetings.find_one(ws_filter(user, {"id": meeting_id}))
     m = Meeting.from_mongo(doc)
     if not m:
         raise HTTPException(status_code=404, detail="Reunión no encontrada")
@@ -456,8 +587,10 @@ async def update_meeting(meeting_id: str, payload: MeetingUpdate, _: User = Depe
 
 
 @api.delete("/meetings/{meeting_id}")
-async def delete_meeting(meeting_id: str, _: User = Depends(get_current_user)):
-    await db.meetings.delete_one({"id": meeting_id})
+async def delete_meeting(meeting_id: str, user: User = Depends(get_current_user)):
+    res = await db.meetings.delete_one(ws_filter(user, {"id": meeting_id}))
+    if res.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Reunión no encontrada")
     return {"deleted": True}
 
 
@@ -474,8 +607,8 @@ def _compute_totals(items: list[ProposalItem], tax_rate: float) -> tuple[float, 
 
 
 @api.get("/proposals")
-async def list_proposals(lead_id: Optional[str] = None, _: User = Depends(get_current_user)):
-    q: dict = {}
+async def list_proposals(lead_id: Optional[str] = None, user: User = Depends(get_current_user)):
+    q = ws_filter(user)
     if lead_id:
         q["lead_id"] = lead_id
     docs = await db.proposals.find(q, {"_id": 0}).sort("created_at", -1).to_list(500)
@@ -484,15 +617,24 @@ async def list_proposals(lead_id: Optional[str] = None, _: User = Depends(get_cu
 
 @api.post("/proposals/generate")
 async def generate_proposal(payload: ProposalGenerateRequest, user: User = Depends(get_current_user)):
-    lead_doc = await db.leads.find_one({"id": payload.lead_id})
+    lead_doc = await db.leads.find_one(ws_filter(user, {"id": payload.lead_id}))
     lead = Lead.from_mongo(lead_doc)
     if not lead:
         raise HTTPException(status_code=404, detail="Lead no encontrado")
-    catalog = [
-        {"name": name, "category": info["category"], "base_price": info["base_price"],
-         "description": info["description"]}
-        for name, info in SERVICE_CATALOG.items()
-    ]
+    # workspace-scoped catalog (fallback to default catalog if empty)
+    svc_docs = await db.services.find(ws_filter(user), {"_id": 0}).to_list(200)
+    if svc_docs:
+        catalog = [
+            {"name": s["name"], "category": s["category"],
+             "base_price": s.get("base_price", 0), "description": s.get("description", "")}
+            for s in svc_docs
+        ]
+    else:
+        catalog = [
+            {"name": name, "category": info["category"], "base_price": info["base_price"],
+             "description": info["description"]}
+            for name, info in SERVICE_CATALOG.items()
+        ]
     content = await generate_proposal_content(
         company_name=lead.company_name,
         industry=lead.industry,
@@ -504,6 +646,7 @@ async def generate_proposal(payload: ProposalGenerateRequest, user: User = Depen
     phases = [ProposalPhase(**p) for p in content.get("phases", [])]
     subtotal, tax, total = _compute_totals(items, 0.12)
     proposal = Proposal(
+        workspace_id=user.workspace_id,
         lead_id=lead.id,
         title=content.get("title") or f"Propuesta {lead.company_name}",
         summary=content.get("summary"),
@@ -529,8 +672,8 @@ async def generate_proposal(payload: ProposalGenerateRequest, user: User = Depen
 
 
 @api.get("/proposals/{proposal_id}")
-async def get_proposal(proposal_id: str, _: User = Depends(get_current_user)):
-    doc = await db.proposals.find_one({"id": proposal_id}, {"_id": 0})
+async def get_proposal(proposal_id: str, user: User = Depends(get_current_user)):
+    doc = await db.proposals.find_one(ws_filter(user, {"id": proposal_id}), {"_id": 0})
     if not doc:
         raise HTTPException(status_code=404, detail="Propuesta no encontrada")
     return doc
@@ -538,7 +681,7 @@ async def get_proposal(proposal_id: str, _: User = Depends(get_current_user)):
 
 @api.patch("/proposals/{proposal_id}")
 async def update_proposal(proposal_id: str, payload: ProposalUpdate, user: User = Depends(get_current_user)):
-    doc = await db.proposals.find_one({"id": proposal_id})
+    doc = await db.proposals.find_one(ws_filter(user, {"id": proposal_id}))
     proposal = Proposal.from_mongo(doc)
     if not proposal:
         raise HTTPException(status_code=404, detail="Propuesta no encontrada")
@@ -557,7 +700,7 @@ async def update_proposal(proposal_id: str, payload: ProposalUpdate, user: User 
 
     # if marked as sent → update lead
     if upd.get("status") == "sent":
-        lead_doc = await db.leads.find_one({"id": proposal.lead_id})
+        lead_doc = await db.leads.find_one(ws_filter(user, {"id": proposal.lead_id}))
         lead = Lead.from_mongo(lead_doc)
         if lead and lead.status not in ("ganado", "perdido"):
             lead.status = "propuesta_enviada"
@@ -570,11 +713,11 @@ async def update_proposal(proposal_id: str, payload: ProposalUpdate, user: User 
 
 
 @api.get("/proposals/{proposal_id}/pdf")
-async def proposal_pdf(proposal_id: str, _: User = Depends(get_current_user)):
-    doc = await db.proposals.find_one({"id": proposal_id}, {"_id": 0})
+async def proposal_pdf(proposal_id: str, user: User = Depends(get_current_user)):
+    doc = await db.proposals.find_one(ws_filter(user, {"id": proposal_id}), {"_id": 0})
     if not doc:
         raise HTTPException(status_code=404, detail="Propuesta no encontrada")
-    lead_doc = await db.leads.find_one({"id": doc["lead_id"]}, {"_id": 0}) or {}
+    lead_doc = await db.leads.find_one(ws_filter(user, {"id": doc["lead_id"]}), {"_id": 0}) or {}
     pdf = build_proposal_pdf(doc, lead_doc)
     filename = f"propuesta-{doc.get('title','propuesta').replace(' ', '_')}.pdf"
     return Response(
@@ -588,23 +731,23 @@ async def proposal_pdf(proposal_id: str, _: User = Depends(get_current_user)):
 # Services (catalog)
 # ---------------------------------------------------------------------------
 @api.get("/services")
-async def list_services(_: User = Depends(get_current_user)):
-    docs = await db.services.find({}, {"_id": 0}).sort("name", 1).to_list(200)
+async def list_services(user: User = Depends(get_current_user)):
+    docs = await db.services.find(ws_filter(user), {"_id": 0}).sort("name", 1).to_list(200)
     return docs
 
 
 @api.post("/services")
-async def create_service(payload: ServiceCreate, _: User = Depends(require_admin)):
-    if await db.services.find_one({"code": payload.code}):
+async def create_service(payload: ServiceCreate, user: User = Depends(require_admin)):
+    if await db.services.find_one(ws_filter(user, {"code": payload.code})):
         raise HTTPException(status_code=400, detail="Código ya existe")
-    s = Service(**payload.model_dump())
+    s = Service(**payload.model_dump(), workspace_id=user.workspace_id)
     await db.services.insert_one(s.to_mongo())
     return s.model_dump()
 
 
 @api.patch("/services/{service_id}")
-async def update_service(service_id: str, payload: ServiceUpdate, _: User = Depends(require_admin)):
-    doc = await db.services.find_one({"id": service_id})
+async def update_service(service_id: str, payload: ServiceUpdate, user: User = Depends(require_admin)):
+    doc = await db.services.find_one(ws_filter(user, {"id": service_id}))
     if not doc:
         raise HTTPException(status_code=404, detail="Servicio no encontrado")
     upd = payload.model_dump(exclude_none=True)
@@ -615,8 +758,10 @@ async def update_service(service_id: str, payload: ServiceUpdate, _: User = Depe
 
 
 @api.delete("/services/{service_id}")
-async def delete_service(service_id: str, _: User = Depends(require_admin)):
-    await db.services.delete_one({"id": service_id})
+async def delete_service(service_id: str, user: User = Depends(require_admin)):
+    res = await db.services.delete_one(ws_filter(user, {"id": service_id}))
+    if res.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Servicio no encontrado")
     return {"deleted": True}
 
 
@@ -624,8 +769,8 @@ async def delete_service(service_id: str, _: User = Depends(require_admin)):
 # Dashboard analytics
 # ---------------------------------------------------------------------------
 @api.get("/dashboard/overview")
-async def dashboard_overview(_: User = Depends(get_current_user)):
-    leads = await db.leads.find({}, {"_id": 0}).to_list(5000)
+async def dashboard_overview(user: User = Depends(get_current_user)):
+    leads = await db.leads.find(ws_filter(user), {"_id": 0}).to_list(5000)
     total_leads = len(leads)
     won = sum(1 for ld in leads if ld.get("status") == "ganado")
     lost = sum(1 for ld in leads if ld.get("status") == "perdido")
