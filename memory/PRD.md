@@ -35,6 +35,21 @@ Crear una plataforma SaaS llamada "Innovagraf Growth System" para captar empresa
 - **Frontend**: página `/signup` con auto-slug + redirección a dashboard, sidebar muestra workspace badge + URL pública.
 - **63/63 tests passed** (36 regresión + 27 multi-tenant).
 
+## What's been implemented (2026-02-14) — Phase 3: Super-Admin + Plan Limits
+- **PLAN_LIMITS**: starter (50 leads/mes, 2 users, sin IA, sin PDF), pro (500 leads/mes, 10 users, IA + PDF), enterprise (sin límites).
+- **Plan enforcement** (HTTP 402): bloqueo en creación de leads (incluyendo diagnostic submit), creación de usuarios, generación IA de propuestas, descarga PDF.
+- **Workspace status** "active" | "suspended". Suspendidos no pueden recibir nuevos leads pero el admin sigue viendo su data.
+- **`GET /api/workspaces/usage`** — workspace + limits + usage (leads_this_month, users) + planes disponibles.
+- **Super-Admin endpoints**: `/api/super-admin/overview` (KPIs globales), `/workspaces` (lista con stats), `PATCH /workspaces/{id}` (cambiar plan/status), `DELETE /workspaces/{id}` (cascade), `/plans` (PLAN_LIMITS dict).
+- **`require_super_admin`** dependency. comercial y admin (no super_admin) reciben 403 en `/super-admin/*`.
+- **Migración auto**: admin@innovagraf.com promovido de admin → super_admin on startup. Workspaces sin status → "active".
+- **Frontend**: 
+  - Nueva página `/app/super-admin` con KPIs, distribución de planes, tabla de workspaces con plan selector + status switch + delete confirm modal.
+  - `UsageBanner` en Dashboard mostrando consumo vs límites con colorización (verde / amarillo 80% / rojo 100%).
+  - `handleApiError` helper con UX especial para HTTP 402 (toast "Upgrade requerido").
+  - Sidebar muestra sección "Plataforma > Super-Admin" solo para role=super_admin.
+- **91/91 tests passed** (63 regresión + 28 Phase 3).
+
 ## Backlog (P0 → P2)
 ### P1 — phase 2 (integrations)
 - Google Calendar integration on `/meetings` (currently calendario interno).
