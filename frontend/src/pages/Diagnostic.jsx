@@ -26,6 +26,7 @@ function saveDraft(draft) {
 
 export default function Diagnostic() {
   const navigate = useNavigate();
+  const { slug } = useParams();
   const [steps, setSteps] = useState([]);
   const [totalSteps, setTotalSteps] = useState(6);
   const [currentStep, setCurrentStep] = useState(1);
@@ -313,10 +314,6 @@ function QuestionField({ question, value, onChange }) {
           })}
         </div>
       )}
-    </div>
-  );
-}
-)}
     </div>
   );
 }

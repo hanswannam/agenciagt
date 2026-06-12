@@ -23,6 +23,18 @@ Crear una plataforma SaaS llamada "Innovagraf Growth System" para captar empresa
 - Branding Innovagraf (naranja #FF4F00 + midnight) + fuentes Outfit/Plus Jakarta Sans.
 - Seed admin (admin@innovagraf.com / Innovagraf2026!) + ventas (ventas@innovagraf.com / Ventas2026!).
 
+## What's been implemented (2026-02-13) — Phase 2: Multi-tenant
+- **Workspaces**: nuevo modelo `Workspace` con `slug` único, `name`, `plan`. Constante DEFAULT_WORKSPACE_SLUG="innovagraf".
+- **`workspace_id`** agregado a User, Lead, Diagnostic, Meeting, Proposal, Service.
+- **Signup público** `POST /api/auth/signup` — crea workspace + admin + siembra 7 servicios.
+- **`GET /api/workspaces/me`** retorna workspace del usuario actual.
+- **Aislamiento total**: todas las queries CRUD están filtradas por `workspace_id` via helper `ws_filter(user)`. Cross-workspace access devuelve 404.
+- **Diagnóstico público multi-workspace**: `POST /api/diagnostic/submit?workspace=<slug>` y ruta UI `/diagnostico/w/:slug`. Default = innovagraf (retrocompat).
+- **Rol super_admin** introducido para Innovagraf (seed). `require_admin` permite admin OR super_admin.
+- **Migración automática on startup**: backfill de workspace_id para docs huérfanos.
+- **Frontend**: página `/signup` con auto-slug + redirección a dashboard, sidebar muestra workspace badge + URL pública.
+- **63/63 tests passed** (36 regresión + 27 multi-tenant).
+
 ## Backlog (P0 → P2)
 ### P1 — phase 2 (integrations)
 - Google Calendar integration on `/meetings` (currently calendario interno).
