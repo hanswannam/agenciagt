@@ -56,6 +56,19 @@ const steps = [
   { n: "03", t: "Propuesta y reunión", d: "Te entregamos propuesta a medida y agendamos kickoff." },
 ];
 
+const stats = [
+  { value: "+120", label: "Empresas potenciadas" },
+  { value: "+58 pts", label: "Madurez digital promedio en 6 meses" },
+  { value: "24h", label: "De diagnóstico a propuesta" },
+];
+
+const fadeUp = {
+  initial: { opacity: 0, y: 24 },
+  whileInView: { opacity: 1, y: 0 },
+  viewport: { once: true, margin: "-80px" },
+  transition: { duration: 0.5 },
+};
+
 export default function Landing() {
   return (
     <div className="min-h-screen bg-[#FAFAFA] text-brand-midnight">
@@ -90,8 +103,9 @@ export default function Landing() {
       </header>
 
       {/* HERO */}
-      <section className="relative overflow-hidden">
+      <section className="relative overflow-hidden grain">
         <div className="absolute inset-0 dotted-bg opacity-60 pointer-events-none" />
+        <div className="absolute -top-32 -left-32 w-[28rem] h-[28rem] bg-brand-orange/10 rounded-full blur-3xl pointer-events-none" />
         <div className="max-w-7xl mx-auto px-6 pt-20 pb-24 grid lg:grid-cols-12 gap-10 items-center relative">
           <motion.div
             initial={{ opacity: 0, y: 24 }}
@@ -115,7 +129,7 @@ export default function Landing() {
               <Link to="/diagnostico" data-testid="hero-cta-primary">
                 <Button
                   size="lg"
-                  className="bg-brand-orange hover:bg-brand-orangeDark text-white rounded-full px-6 h-12 text-base"
+                  className="bg-brand-orange hover:bg-brand-orangeDark text-white rounded-full px-6 h-12 text-base shadow-lg shadow-brand-orange/25 hover:shadow-xl hover:shadow-brand-orange/30"
                 >
                   Iniciar diagnóstico gratis <ArrowRight size={18} className="ml-1" />
                 </Button>
@@ -139,6 +153,14 @@ export default function Landing() {
               </div>
               <span>+120 empresas potenciadas en Centroamérica</span>
             </div>
+            <div className="mt-12 grid grid-cols-3 max-w-md divide-x divide-black/10 border-t border-black/10 pt-6">
+              {stats.map((s) => (
+                <div key={s.label} className="px-4 first:pl-0">
+                  <div className="font-display text-2xl font-bold tracking-tight">{s.value}</div>
+                  <div className="text-xs text-brand-midnight/55 mt-1 leading-snug">{s.label}</div>
+                </div>
+              ))}
+            </div>
           </motion.div>
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
@@ -153,6 +175,15 @@ export default function Landing() {
                 className="w-full h-[420px] object-cover opacity-80"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-brand-midnight via-brand-midnight/60 to-transparent" />
+              <motion.div
+                initial={{ opacity: 0, y: -12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.5 }}
+                className="absolute top-6 right-6 flex items-center gap-2 px-3 py-2 rounded-full bg-white/10 backdrop-blur-md border border-white/15 text-white text-xs font-semibold"
+              >
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                Diagnóstico en vivo
+              </motion.div>
               <div className="absolute bottom-6 left-6 right-6 text-white">
                 <div className="text-xs tracking-[0.3em] uppercase text-brand-orange font-bold mb-2">
                   Madurez digital
@@ -170,7 +201,7 @@ export default function Landing() {
       {/* SERVICES */}
       <section id="servicios" className="py-24 bg-white border-y border-black/5">
         <div className="max-w-7xl mx-auto px-6">
-          <div className="max-w-2xl mb-16">
+          <motion.div {...fadeUp} className="max-w-2xl mb-16">
             <div className="text-xs tracking-[0.3em] uppercase text-brand-orange font-bold mb-3">Servicios</div>
             <h2 className="font-display text-4xl sm:text-5xl font-bold tracking-tighter">
               Todo lo que tu empresa necesita para crecer digital.
@@ -179,7 +210,7 @@ export default function Landing() {
               Soluciones integradas, no parches. Cada servicio se diseña para conectar con los
               demás y multiplicar tus resultados.
             </p>
-          </div>
+          </motion.div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {services.map((s, idx) => (
               <motion.div
@@ -203,26 +234,30 @@ export default function Landing() {
       </section>
 
       {/* PROCESS */}
-      <section id="proceso" className="py-24 bg-brand-midnight text-white relative overflow-hidden">
+      <section id="proceso" className="py-24 bg-brand-midnight text-white relative overflow-hidden grain">
         <div className="absolute -top-20 -right-20 w-80 h-80 bg-brand-orange/30 rounded-full blur-3xl" />
         <div className="max-w-7xl mx-auto px-6 relative">
-          <div className="max-w-2xl mb-16">
+          <motion.div {...fadeUp} className="max-w-2xl mb-16">
             <div className="text-xs tracking-[0.3em] uppercase text-brand-orange font-bold mb-3">Proceso</div>
             <h2 className="font-display text-4xl sm:text-5xl font-bold tracking-tighter">
               De diagnóstico a propuesta en 24 horas.
             </h2>
-          </div>
+          </motion.div>
           <div className="grid md:grid-cols-3 gap-6">
-            {steps.map((s) => (
-              <div
+            {steps.map((s, idx) => (
+              <motion.div
                 key={s.n}
-                className="border border-white/10 rounded-2xl p-7 bg-white/5 hover:bg-white/10 transition"
+                initial={{ opacity: 0, y: 18 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: "-80px" }}
+                transition={{ duration: 0.4, delay: idx * 0.08 }}
+                className="border border-white/10 rounded-2xl p-7 bg-white/5 hover:bg-white/10 hover:border-brand-orange/30 transition-all"
                 data-testid={`process-step-${s.n}`}
               >
                 <div className="font-display text-5xl font-bold text-brand-orange mb-3">{s.n}</div>
                 <div className="font-semibold text-xl mb-2">{s.t}</div>
                 <div className="text-white/70 text-sm">{s.d}</div>
-              </div>
+              </motion.div>
             ))}
           </div>
         </div>
@@ -231,29 +266,47 @@ export default function Landing() {
       {/* CASES */}
       <section id="casos" className="py-24 bg-white">
         <div className="max-w-7xl mx-auto px-6">
-          <div className="max-w-2xl mb-16">
+          <motion.div {...fadeUp} className="max-w-2xl mb-16">
             <div className="text-xs tracking-[0.3em] uppercase text-brand-orange font-bold mb-3">
               Casos de éxito
             </div>
             <h2 className="font-display text-4xl sm:text-5xl font-bold tracking-tighter">
               Empresas que ya crecen con Innovagraf.
             </h2>
-          </div>
+          </motion.div>
           <div className="grid lg:grid-cols-3 gap-6">
-            {cases.map((c) => (
-              <div
+            {cases.map((c, idx) => (
+              <motion.div
                 key={c.company}
-                className="border border-black/10 rounded-2xl p-7 hover:shadow-lg transition"
+                initial={{ opacity: 0, y: 18 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: "-80px" }}
+                transition={{ duration: 0.4, delay: idx * 0.08 }}
+                className="border border-black/10 rounded-2xl p-7 hover:shadow-xl hover:-translate-y-1 hover:border-brand-orange/30 transition-all bg-white"
                 data-testid={`case-${c.company.toLowerCase().replace(/\s+/g, "-")}`}
               >
-                <Quote size={22} className="text-brand-orange mb-4" />
+                <div className="flex items-center justify-between mb-4">
+                  <Quote size={22} className="text-brand-orange" />
+                  <div className="flex">
+                    {[0, 1, 2, 3, 4].map((i) => (
+                      <Star key={i} size={12} className="fill-brand-orange text-brand-orange" />
+                    ))}
+                  </div>
+                </div>
                 <p className="text-brand-midnight leading-relaxed mb-6">&ldquo;{c.quote}&rdquo;</p>
-                <div className="text-sm font-semibold">{c.person}</div>
-                <div className="text-xs text-brand-midnight/55">{c.company} · {c.industry}</div>
-                <div className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-brand-orange">
+                <div className="flex items-center gap-3 mb-5">
+                  <div className="w-9 h-9 rounded-full bg-brand-orange/10 text-brand-orange font-display font-bold flex items-center justify-center text-sm shrink-0">
+                    {c.person.charAt(0)}
+                  </div>
+                  <div>
+                    <div className="text-sm font-semibold leading-tight">{c.person}</div>
+                    <div className="text-xs text-brand-midnight/55">{c.company} · {c.industry}</div>
+                  </div>
+                </div>
+                <div className="inline-flex items-center gap-2 text-sm font-semibold text-brand-orange bg-brand-orange/5 rounded-full px-3 py-1.5">
                   <Check size={16} /> {c.result}
                 </div>
-              </div>
+              </motion.div>
             ))}
           </div>
         </div>
@@ -262,7 +315,13 @@ export default function Landing() {
       {/* CTA */}
       <section className="py-24 bg-[#FAFAFA]">
         <div className="max-w-5xl mx-auto px-6">
-          <div className="bg-brand-midnight text-white rounded-3xl p-12 md:p-16 relative overflow-hidden">
+          <motion.div
+            initial={{ opacity: 0, y: 24 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-80px" }}
+            transition={{ duration: 0.5 }}
+            className="bg-brand-midnight text-white rounded-3xl p-12 md:p-16 relative overflow-hidden grain shadow-2xl"
+          >
             <div className="absolute -bottom-20 -left-20 w-80 h-80 bg-brand-orange/30 rounded-full blur-3xl" />
             <div className="relative grid md:grid-cols-2 gap-8 items-center">
               <div>
@@ -277,23 +336,60 @@ export default function Landing() {
                 <Link to="/diagnostico" data-testid="bottom-cta">
                   <Button
                     size="lg"
-                    className="bg-brand-orange hover:bg-brand-orangeDark text-white rounded-full px-8 h-14 text-base"
+                    className="bg-brand-orange hover:bg-brand-orangeDark text-white rounded-full px-8 h-14 text-base shadow-lg shadow-brand-orange/25 hover:shadow-xl hover:shadow-brand-orange/30"
                   >
                     Empezar ahora <ArrowRight size={18} className="ml-1" />
                   </Button>
                 </Link>
               </div>
             </div>
-          </div>
+          </motion.div>
         </div>
       </section>
 
-      <footer className="border-t border-black/5 py-10">
-        <div className="max-w-7xl mx-auto px-6 flex flex-col sm:flex-row justify-between gap-4 text-sm text-brand-midnight/60">
-          <div>© {new Date().getFullYear()} Innovagraf Growth System — Guatemala.</div>
-          <div className="flex gap-6">
-            <Link to="/login" className="hover:text-brand-orange">Acceso equipo</Link>
-            <a href="mailto:contacto@innovagraf.com.gt" className="hover:text-brand-orange">contacto@innovagraf.com.gt</a>
+      <footer className="border-t border-black/5 bg-white">
+        <div className="max-w-7xl mx-auto px-6 py-14 grid sm:grid-cols-2 lg:grid-cols-4 gap-10">
+          <div className="lg:col-span-2">
+            <Link to="/" className="flex items-center gap-2 mb-4">
+              <div className="w-8 h-8 rounded-lg bg-brand-orange flex items-center justify-center text-white">
+                <Sparkles size={16} />
+              </div>
+              <span className="font-display font-bold tracking-tight">
+                Innovagraf <span className="text-brand-orange">Growth</span>
+              </span>
+            </Link>
+            <p className="text-sm text-brand-midnight/60 max-w-sm leading-relaxed">
+              Diagnóstico inteligente y ejecución de páginas web, CRM, automatización, chatbots y
+              agentes de IA para empresas que quieren crecer en serio.
+            </p>
+          </div>
+          <div>
+            <div className="text-xs tracking-[0.2em] uppercase font-bold text-brand-midnight/40 mb-4">
+              Producto
+            </div>
+            <div className="flex flex-col gap-3 text-sm text-brand-midnight/70">
+              <a href="#servicios" className="hover:text-brand-orange transition">Servicios</a>
+              <a href="#casos" className="hover:text-brand-orange transition">Casos de éxito</a>
+              <a href="#proceso" className="hover:text-brand-orange transition">Proceso</a>
+              <Link to="/diagnostico" className="hover:text-brand-orange transition">Diagnóstico gratis</Link>
+            </div>
+          </div>
+          <div>
+            <div className="text-xs tracking-[0.2em] uppercase font-bold text-brand-midnight/40 mb-4">
+              Empresa
+            </div>
+            <div className="flex flex-col gap-3 text-sm text-brand-midnight/70">
+              <Link to="/login" className="hover:text-brand-orange transition">Acceso equipo</Link>
+              <Link to="/signup" className="hover:text-brand-orange transition">Crear workspace</Link>
+              <a href="mailto:contacto@innovagraf.com.gt" className="hover:text-brand-orange transition">
+                contacto@innovagraf.com.gt
+              </a>
+            </div>
+          </div>
+        </div>
+        <div className="border-t border-black/5">
+          <div className="max-w-7xl mx-auto px-6 py-6 text-xs text-brand-midnight/50">
+            © {new Date().getFullYear()} Innovagraf Growth System — Guatemala.
           </div>
         </div>
       </footer>
