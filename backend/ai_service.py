@@ -6,19 +6,22 @@ import os
 import re
 from typing import Any
 
-from emergentintegrations.llm.chat import LlmChat, UserMessage
+import anthropic
 
-EMERGENT_LLM_KEY = os.environ["EMERGENT_LLM_KEY"]
-MODEL_PROVIDER = "anthropic"
+ANTHROPIC_API_KEY = os.environ["ANTHROPIC_API_KEY"]
 MODEL_NAME = "claude-sonnet-4-6"
 
+_client = anthropic.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
 
-def _chat(session_id: str, system_message: str) -> LlmChat:
-    return LlmChat(
-        api_key=EMERGENT_LLM_KEY,
-        session_id=session_id,
-        system_message=system_message,
-    ).with_model(MODEL_PROVIDER, MODEL_NAME)
+
+async def _ask(system_message: str, prompt: str) -> str:
+    response = await _client.messages.create(
+        model=MODEL_NAME,
+        max_tokens=2048,
+        system=system_message,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    return response.content[0].text
 
 
 def _extract_json(text: str) -> dict | list | None:
@@ -72,8 +75,7 @@ async def generate_diagnostic_summary(
         f"Diagnóstico:\n{json.dumps(payload, ensure_ascii=False, indent=2)}"
     )
     try:
-        chat = _chat(f"diag-{company_name[:20]}", system)
-        response = await chat.send_message(UserMessage(text=prompt))
+        response = await _ask(system, prompt)
         return (response or "").strip()
     except Exception as e:  # noqa: BLE001
         return (
@@ -129,8 +131,7 @@ async def generate_proposal_content(
         f"Devuelve EXACTAMENTE este JSON (sin markdown):\n{json.dumps(schema, ensure_ascii=False)}"
     )
     try:
-        chat = _chat(f"prop-{company_name[:20]}", system)
-        response = await chat.send_message(UserMessage(text=prompt))
+        response = await _ask(system, prompt)
         data = _extract_json(response or "")
         if isinstance(data, dict):
             return data
