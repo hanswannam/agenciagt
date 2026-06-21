@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { formatCurrency } from "@/lib/constants";
 
@@ -166,6 +166,7 @@ function CreateUserDialog({ onSaved }) {
 function ServicesPanel() {
   const [services, setServices] = useState([]);
   const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState(null);
 
   const load = async () => {
     const { data } = await api.get("/services");
@@ -203,7 +204,14 @@ function ServicesPanel() {
               <td className="px-4 py-3">
                 <Switch checked={s.active} onCheckedChange={async (v) => { await api.patch(`/services/${s.id}`, { active: v }); load(); }} />
               </td>
-              <td className="px-4 py-3 text-right">
+              <td className="px-4 py-3 text-right space-x-1">
+                <button
+                  className="text-brand-midnight/60 hover:bg-zinc-100 p-1.5 rounded"
+                  onClick={() => setEditing(s)}
+                  data-testid={`edit-service-${s.id}`}
+                >
+                  <Pencil size={14} />
+                </button>
                 <button
                   className="text-rose-500 hover:bg-rose-50 p-1.5 rounded"
                   onClick={async () => {
@@ -220,6 +228,14 @@ function ServicesPanel() {
           ))}
         </tbody>
       </table>
+      <Dialog open={!!editing} onOpenChange={(v) => !v && setEditing(null)}>
+        {editing && (
+          <EditServiceDialog
+            service={editing}
+            onSaved={() => { setEditing(null); load(); }}
+          />
+        )}
+      </Dialog>
     </div>
   );
 }
@@ -267,6 +283,97 @@ function CreateServiceDialog({ onSaved }) {
       </div>
       <DialogFooter>
         <Button onClick={save} className="bg-brand-orange hover:bg-brand-orangeDark rounded-full" data-testid="save-service-button">Crear</Button>
+      </DialogFooter>
+    </DialogContent>
+  );
+}
+
+function EditServiceDialog({ service, onSaved }) {
+  const [form, setForm] = useState({
+    name: service.name,
+    description: service.description,
+    category: service.category,
+    base_price: service.base_price,
+  });
+  const [loading, setLoading] = useState(false);
+
+  const save = async () => {
+    if (!form.name) {
+      toast.error("El nombre es requerido");
+      return;
+    }
+    setLoading(true);
+    try {
+      await api.patch(`/services/${service.id}`, form);
+      toast.success("Servicio actualizado");
+      onSaved();
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Error al actualizar");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <DialogContent data-testid="edit-service-dialog">
+      <DialogHeader><DialogTitle>Editar servicio</DialogTitle></DialogHeader>
+      <div className="space-y-3">
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Label>Código</Label>
+            <Input value={service.code} disabled data-testid="edit-service-code-input" />
+          </div>
+          <div>
+            <Label>Nombre</Label>
+            <Input
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              data-testid="edit-service-name-input"
+            />
+          </div>
+        </div>
+        <div>
+          <Label>Descripción</Label>
+          <Input
+            value={form.description}
+            onChange={(e) => setForm({ ...form, description: e.target.value })}
+            data-testid="edit-service-description-input"
+          />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Label>Categoría</Label>
+            <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v })}>
+              <SelectTrigger data-testid="edit-service-category-select"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="web">Web</SelectItem>
+                <SelectItem value="crm">CRM</SelectItem>
+                <SelectItem value="automation">Automation</SelectItem>
+                <SelectItem value="ai">IA</SelectItem>
+                <SelectItem value="marketing">Marketing</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>Precio base USD</Label>
+            <Input
+              type="number"
+              value={form.base_price}
+              onChange={(e) => setForm({ ...form, base_price: parseFloat(e.target.value) || 0 })}
+              data-testid="edit-service-price-input"
+            />
+          </div>
+        </div>
+      </div>
+      <DialogFooter>
+        <Button
+          disabled={loading}
+          onClick={save}
+          className="bg-brand-orange hover:bg-brand-orangeDark rounded-full"
+          data-testid="save-edit-service-button"
+        >
+          Guardar cambios
+        </Button>
       </DialogFooter>
     </DialogContent>
   );
