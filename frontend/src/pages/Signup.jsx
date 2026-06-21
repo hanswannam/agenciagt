@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Loader2, Sparkles, ArrowLeft } from "lucide-react";
+import { Loader2, ArrowLeft } from "lucide-react";
+import logo from "@/assets/logo.png";
 
 function slugify(s) {
   return (s || "")
@@ -72,11 +73,10 @@ export default function Signup() {
         <div className="absolute inset-0 dotted-bg opacity-20" />
         <div className="absolute -top-32 -left-32 w-96 h-96 bg-brand-orange/30 rounded-full blur-3xl" />
         <div className="relative p-12 flex flex-col justify-between w-full">
-          <Link to="/" className="flex items-center gap-2" data-testid="signup-back-home">
-            <div className="w-9 h-9 rounded-lg bg-brand-orange flex items-center justify-center">
-              <Sparkles size={18} />
+          <Link to="/" className="flex items-center" data-testid="signup-back-home">
+            <div className="bg-white rounded-lg px-3 py-2">
+              <img src={logo} alt="Innovagraf" className="h-6 w-auto" />
             </div>
-            <span className="font-display font-bold">Innovagraf <span className="text-brand-orange">Growth</span></span>
           </Link>
           <div>
             <div className="text-xs tracking-[0.3em] uppercase text-brand-orange font-bold mb-4">

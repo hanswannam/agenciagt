@@ -7,7 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
-import { ArrowLeft, ArrowRight, Sparkles, Loader2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, Loader2 } from "lucide-react";
+import logo from "@/assets/logo.png";
 
 const STORAGE_KEY = "innovagraf_diagnostic_draft";
 
@@ -99,11 +100,8 @@ export default function Diagnostic() {
     <div className="min-h-screen bg-[#FAFAFA]">
       <header className="border-b border-black/5 bg-white">
         <div className="max-w-5xl mx-auto px-6 h-16 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2" data-testid="diagnostic-logo">
-            <div className="w-8 h-8 rounded-lg bg-brand-orange flex items-center justify-center text-white">
-              <Sparkles size={16} />
-            </div>
-            <span className="font-display font-bold">Innovagraf <span className="text-brand-orange">Growth</span></span>
+          <Link to="/" className="flex items-center" data-testid="diagnostic-logo">
+            <img src={logo} alt="Innovagraf" className="h-8 w-auto" />
           </Link>
           <div className="text-sm text-brand-midnight/60" data-testid="diagnostic-step-indicator">
             Paso {currentStep} de {totalSteps}

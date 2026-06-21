@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
+import logo from "@/assets/logo.png";
 import {
   ArrowRight,
   Globe,
@@ -10,7 +11,6 @@ import {
   PhoneCall,
   Database,
   Workflow,
-  Sparkles,
   Check,
   Star,
   Quote,
@@ -75,13 +75,8 @@ export default function Landing() {
       {/* NAV */}
       <header className="sticky top-0 z-30 backdrop-blur-xl bg-white/70 border-b border-black/5">
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2" data-testid="landing-logo">
-            <div className="w-8 h-8 rounded-lg bg-brand-orange flex items-center justify-center text-white">
-              <Sparkles size={16} />
-            </div>
-            <span className="font-display font-bold tracking-tight">
-              Innovagraf <span className="text-brand-orange">Growth</span>
-            </span>
+          <Link to="/" className="flex items-center" data-testid="landing-logo">
+            <img src={logo} alt="Innovagraf" className="h-9 w-auto" />
           </Link>
           <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-brand-midnight/70">
             <a href="#servicios" className="hover:text-brand-orange transition">Servicios</a>
@@ -350,13 +345,8 @@ export default function Landing() {
       <footer className="border-t border-black/5 bg-white">
         <div className="max-w-7xl mx-auto px-6 py-14 grid sm:grid-cols-2 lg:grid-cols-4 gap-10">
           <div className="lg:col-span-2">
-            <Link to="/" className="flex items-center gap-2 mb-4">
-              <div className="w-8 h-8 rounded-lg bg-brand-orange flex items-center justify-center text-white">
-                <Sparkles size={16} />
-              </div>
-              <span className="font-display font-bold tracking-tight">
-                Innovagraf <span className="text-brand-orange">Growth</span>
-              </span>
+            <Link to="/" className="flex items-center mb-4">
+              <img src={logo} alt="Innovagraf" className="h-9 w-auto" />
             </Link>
             <p className="text-sm text-brand-midnight/60 max-w-sm leading-relaxed">
               Diagnóstico inteligente y ejecución de páginas web, CRM, automatización, chatbots y

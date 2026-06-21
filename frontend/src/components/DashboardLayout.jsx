@@ -7,10 +7,10 @@ import {
   FileText,
   Settings2,
   LogOut,
-  Sparkles,
   Trello,
   Crown,
 } from "lucide-react";
+import logo from "@/assets/logo.png";
 
 const links = [
   { to: "/app/dashboard", label: "Dashboard", icon: LayoutDashboard, testId: "nav-dashboard" },
@@ -28,13 +28,9 @@ export default function DashboardLayout() {
     <div className="min-h-screen bg-[#FAFAFA]">
       <aside className="fixed inset-y-0 left-0 w-64 bg-brand-midnight text-white flex flex-col z-20">
         <div className="px-6 py-6 border-b border-white/10">
-          <Link to="/" className="flex items-center gap-2" data-testid="sidebar-logo">
-            <div className="w-9 h-9 rounded-lg bg-brand-orange flex items-center justify-center">
-              <Sparkles size={18} />
-            </div>
-            <div>
-              <div className="font-display font-bold leading-tight">Innovagraf</div>
-              <div className="text-[10px] tracking-[0.2em] uppercase text-white/60">Growth System</div>
+          <Link to="/" className="flex items-center" data-testid="sidebar-logo">
+            <div className="bg-white rounded-lg px-3 py-2">
+              <img src={logo} alt="Innovagraf" className="h-6 w-auto" />
             </div>
           </Link>
           {user?.workspace && (

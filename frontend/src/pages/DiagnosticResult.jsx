@@ -18,6 +18,7 @@ import {
   Info,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
+import logo from "@/assets/logo.png";
 
 const CATEGORY_LABELS = {
   web: "Presencia Web",
@@ -67,11 +68,8 @@ export default function DiagnosticResult() {
     <div className="min-h-screen bg-[#FAFAFA]">
       <header className="border-b border-black/5 bg-white sticky top-0 z-20">
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2" data-testid="result-logo">
-            <div className="w-8 h-8 rounded-lg bg-brand-orange flex items-center justify-center text-white">
-              <Sparkles size={16} />
-            </div>
-            <span className="font-display font-bold">Innovagraf <span className="text-brand-orange">Growth</span></span>
+          <Link to="/" className="flex items-center" data-testid="result-logo">
+            <img src={logo} alt="Innovagraf" className="h-8 w-auto" />
           </Link>
           <Link to="/diagnostico">
             <Button variant="outline" className="rounded-full" data-testid="result-restart-button">
