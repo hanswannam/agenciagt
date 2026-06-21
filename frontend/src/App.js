@@ -7,7 +7,6 @@ import Landing from "@/pages/Landing";
 import Diagnostic from "@/pages/Diagnostic";
 import DiagnosticResult from "@/pages/DiagnosticResult";
 import Login from "@/pages/Login";
-import Signup from "@/pages/Signup";
 import DashboardLayout from "@/components/DashboardLayout";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import Dashboard from "@/pages/Dashboard";
@@ -31,7 +30,6 @@ function App() {
           <Route path="/diagnostico/w/:slug" element={<Diagnostic />} />
           <Route path="/diagnostico/resultado/:id" element={<DiagnosticResult />} />
           <Route path="/login" element={<Login />} />
-          <Route path="/signup" element={<Signup />} />
 
           <Route
             path="/app"

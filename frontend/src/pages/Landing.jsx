@@ -85,9 +85,6 @@ export default function Landing() {
             <Link to="/login" className="hover:text-brand-orange transition" data-testid="landing-login-link">
               Login
             </Link>
-            <Link to="/signup" className="hover:text-brand-orange transition" data-testid="landing-signup-link">
-              Crear workspace
-            </Link>
           </nav>
           <Link to="/diagnostico" data-testid="landing-cta-nav">
             <Button className="bg-brand-orange hover:bg-brand-orangeDark text-white rounded-full px-5">
@@ -370,7 +367,6 @@ export default function Landing() {
             </div>
             <div className="flex flex-col gap-3 text-sm text-brand-midnight/70">
               <Link to="/login" className="hover:text-brand-orange transition">Acceso equipo</Link>
-              <Link to="/signup" className="hover:text-brand-orange transition">Crear workspace</Link>
               <a href="mailto:contacto@innovagraf.com.gt" className="hover:text-brand-orange transition">
                 contacto@innovagraf.com.gt
               </a>
