@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -30,15 +30,15 @@ export default function Leads() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [open, setOpen] = useState(false);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     const params = statusFilter !== "all" ? { status: statusFilter } : {};
     const { data } = await api.get("/leads", { params });
     setLeads(data);
-  };
+  }, [statusFilter]);
 
   useEffect(() => {
     load();
-  }, [statusFilter]);
+  }, [load]);
 
   const filtered = leads.filter((l) => {
     const s = search.toLowerCase();
