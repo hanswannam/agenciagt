@@ -294,7 +294,7 @@ export default function Landing() {
       </nav>
 
       {/* HERO */}
-      <header className="relative z-10 max-w-[1200px] mx-auto px-7 pt-16 sm:pt-20 pb-14 grid lg:grid-cols-2 gap-12 items-center">
+      <header className="relative z-10 max-w-[1200px] mx-auto px-7 pt-16 sm:pt-20 pb-14 grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
         <div className="dc-fade-up">
           <div className="font-mono2 text-xs tracking-[0.22em] mb-5" style={{ color: "#ff8a44" }}>
             CRM · ERP · {t("IA", "AI")} · WEB · CHATBOTS
@@ -512,7 +512,7 @@ export default function Landing() {
 
       {/* TRUST STRIP */}
       <section className="relative z-10 max-w-[1200px] mx-auto px-7 pb-5">
-        <div className="rounded-[18px] border border-white/[0.08] px-8 py-6 grid md:grid-cols-[1fr_auto] gap-7 items-center" style={{ background: "rgba(22,17,12,.5)" }}>
+        <div className="rounded-[18px] border border-white/[0.08] px-8 py-6 grid grid-cols-1 md:grid-cols-[1fr_auto] gap-7 items-center" style={{ background: "rgba(22,17,12,.5)" }}>
           <div>
             <div className="font-mono2 text-[11px] tracking-[0.18em] mb-4" style={{ color: "#7c7065" }}>
               {t("CONFÍAN EN NUESTRA TECNOLOGÍA", "TRUSTED BY GROWING TEAMS")}
@@ -553,7 +553,7 @@ export default function Landing() {
           </div>
         </div>
 
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {services.map((s) => (
             <div
               key={s.key}
@@ -587,7 +587,7 @@ export default function Landing() {
       {/* SOLUCIONES */}
       <section id="soluciones" className="relative z-10 max-w-[1200px] mx-auto px-7 py-11">
         <div
-          className="rounded-[22px] border border-white/[0.08] p-9 sm:p-11 grid md:grid-cols-2 gap-10 items-center"
+          className="rounded-[22px] border border-white/[0.08] p-9 sm:p-11 grid grid-cols-1 md:grid-cols-2 gap-10 items-center"
           style={{ background: "linear-gradient(120deg, rgba(255,84,20,.1), rgba(22,17,12,.4))" }}
         >
           <div>
@@ -622,7 +622,7 @@ export default function Landing() {
             {t("Negocios que crecen con nosotros.", "Businesses growing with us.")}
           </h2>
         </div>
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {testimonials.map((tm) => (
             <div key={tm.name} className="rounded-[18px] p-7 border border-white/[0.08]" style={{ background: "rgba(22,17,12,.6)" }}>
               <div className="font-serifItalic text-[46px] leading-[0.5] h-6" style={{ color: "#ff8a44" }}>&ldquo;</div>
@@ -649,7 +649,7 @@ export default function Landing() {
       {/* CONTACTO / CTA */}
       <section id="contacto" className="relative z-10 max-w-[1200px] mx-auto px-7 py-14 pb-6">
         <div
-          className="rounded-[24px] border p-9 sm:p-11 grid md:grid-cols-2 gap-10 items-center"
+          className="rounded-[24px] border p-6 sm:p-11 grid grid-cols-1 md:grid-cols-2 gap-10 items-center"
           style={{ borderColor: "rgba(255,122,46,.2)", background: "radial-gradient(120% 140% at 0% 0%, rgba(255,84,20,.14), rgba(22,17,12,.5))" }}
         >
           <div>
@@ -673,7 +673,7 @@ export default function Landing() {
           </div>
 
           <div
-            className="rounded-2xl p-9 text-center border"
+            className="rounded-2xl p-6 sm:p-9 text-center border"
             style={{ background: "rgba(12,10,8,.5)", borderColor: "rgba(255,122,46,.3)" }}
           >
             <h3 className="font-grotesk font-semibold text-[22px] mb-2">
@@ -687,10 +687,11 @@ export default function Landing() {
             </p>
             <Link to="/diagnostico" data-testid="bottom-cta">
               <Button
-                className="rounded-full px-8 h-[52px] text-base font-bold border-none w-full sm:w-auto"
+                className="rounded-full px-4 sm:px-8 h-auto min-h-[52px] py-3 text-[15px] sm:text-base font-bold border-none w-full sm:w-auto"
                 style={{ background: "linear-gradient(140deg,#ff7a2e,#ff5414)", color: "#160a04", boxShadow: "0 12px 30px rgba(255,84,20,.3)" }}
               >
-                {t("Iniciar diagnóstico gratis", "Start free diagnosis")} <ArrowRight size={18} className="ml-1" />
+                <span className="whitespace-normal leading-snug">{t("Iniciar diagnóstico gratis", "Start free diagnosis")}</span>
+                <ArrowRight size={18} className="ml-1 shrink-0" />
               </Button>
             </Link>
           </div>
