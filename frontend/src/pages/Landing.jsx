@@ -1,518 +1,547 @@
-import { useEffect, useRef } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
-import {
-  motion,
-  useMotionValue,
-  useTransform,
-  useInView,
-  useScroll,
-  animate,
-} from "framer-motion";
 import { Button } from "@/components/ui/button";
 import logo from "@/assets/logo.png";
 import {
   ArrowRight,
-  Globe,
-  MonitorSmartphone,
   Users,
-  Bot,
-  PhoneCall,
-  Database,
-  Workflow,
-  Check,
-  Star,
-  Quote,
-  TrendingUp,
+  LayoutGrid,
+  Globe,
+  MessageSquare,
+  Mic,
+  Smartphone,
+  Sparkles,
 } from "lucide-react";
 
 const services = [
-  { icon: Globe, name: "Página Web", desc: "Sitios web profesionales, responsive y orientados a conversión." },
-  { icon: MonitorSmartphone, name: "Landing Page", desc: "Landings de alta conversión para campañas y lanzamientos." },
-  { icon: Users, name: "CRM", desc: "Gestiona leads y ventas en un pipeline visual y automatizado." },
-  { icon: Bot, name: "Chatbot IA", desc: "Asistentes con IA conectados a WhatsApp y web 24/7." },
-  { icon: PhoneCall, name: "Agente de Voz IA", desc: "Recibe llamadas, agenda y deriva — sin sumar personal." },
-  { icon: Database, name: "ERP", desc: "Centraliza inventario, finanzas, ventas y operaciones." },
-  { icon: Workflow, name: "Automatizaciones", desc: "Flujos comerciales y operativos sin código, listos para escalar." },
-];
-
-const cases = [
-  {
-    company: "Distribuidora Maya",
-    industry: "Retail",
-    result: "+184% leads calificados en 90 días",
-    quote: "Implementaron CRM + Chatbot IA y nuestro equipo dejó de perder oportunidades. Cerramos más con menos esfuerzo.",
-    person: "Andrea Méndez · Gerente Comercial",
-  },
-  {
-    company: "Clínica Vida",
-    industry: "Salud",
-    result: "Agente de voz IA atiende 92% de citas",
-    quote: "El agente de voz redujo nuestra carga de llamadas y agendó más citas en el primer mes que el call center anterior.",
-    person: "Dr. Luis Paredes · Director",
-  },
-  {
-    company: "Constructora Solid",
-    industry: "Construcción",
-    result: "ERP + automatizaciones: -38% costos op.",
-    quote: "Integraron nuestro ERP con automatizaciones que antes eran manuales. Ahora todo el equipo trabaja con data en tiempo real.",
-    person: "Carla Ruiz · COO",
-  },
+  { icon: Users, key: "svc1", name: "CRM", desc: "Gestiona clientes, ventas y pipeline en un CRM hecho a la medida de tu equipo, con automatizaciones e IA integradas.", descEn: "Manage clients, sales and pipeline in a CRM tailored to your team, with automations and AI built in.", wide: true, accent: true },
+  { icon: LayoutGrid, key: "svc2", name: "ERP", desc: "Integra inventario, finanzas y operaciones en un solo sistema.", descEn: "Unify inventory, finance and operations in a single system." },
+  { icon: Globe, key: "svc3", name: "Páginas web", nameEn: "Websites", desc: "Sitios rápidos, modernos y optimizados para convertir.", descEn: "Fast, modern sites optimized to convert." },
+  { icon: MessageSquare, key: "svc4", name: "Chatbots", desc: "Atiende y vende automáticamente, 24/7, en todos tus canales.", descEn: "Support and sell automatically, 24/7, across every channel." },
+  { icon: Mic, key: "svc5", name: "Asistentes de voz", nameEn: "Voice assistants", desc: "Respuestas naturales por voz para soporte y reservas.", descEn: "Natural voice responses for support and bookings." },
+  { icon: Smartphone, key: "svc6", name: "Aplicaciones web", nameEn: "Web apps", desc: "Apps a medida que digitalizan tus procesos clave.", descEn: "Custom apps that digitize your key processes." },
+  { icon: Sparkles, key: "svc7", name: "Agentes de IA", nameEn: "AI agents", desc: "Agentes autónomos que ejecutan tareas y toman decisiones por ti.", descEn: "Autonomous agents that run tasks and make decisions for you.", accent: true },
 ];
 
 const steps = [
-  { n: "01", t: "Diagnóstico", d: "Responde 5 pasos guiados. Tarda menos de 5 minutos." },
-  { n: "02", t: "Recomendaciones IA", d: "Recibirás un plan personalizado con servicios priorizados." },
-  { n: "03", t: "Propuesta y reunión", d: "Te entregamos propuesta a medida y agendamos kickoff." },
+  { n: "01", es: "Diagnóstico y estrategia", en: "Diagnosis & strategy" },
+  { n: "02", es: "Diseño e integración", en: "Design & integration" },
+  { n: "03", es: "Automatización con IA", en: "AI automation" },
+  { n: "04", es: "Soporte y evolución", en: "Support & evolution" },
 ];
 
-const stats = [
-  { target: 120, prefix: "+", suffix: "", label: "Empresas potenciadas" },
-  { target: 58, prefix: "+", suffix: " pts", label: "Madurez digital promedio en 6 meses" },
-  { target: 24, prefix: "", suffix: "h", label: "De diagnóstico a propuesta" },
+const testimonials = [
+  {
+    quote: "Implementamos el CRM y los chatbots de Innovagraf y duplicamos las oportunidades cerradas en un trimestre.",
+    quoteEn: "We rolled out the CRM and Innovagraf chatbots and doubled closed opportunities in one quarter.",
+    initials: "MR",
+    name: "María Robles",
+    role: "Dir. Comercial, Norvex",
+    roleEn: "Sales Director, Norvex",
+    grad: "linear-gradient(135deg,#ff7a2e,#b8330a)",
+    color: "#160a04",
+  },
+  {
+    quote: "El ERP a medida nos quitó horas de trabajo manual cada semana. Por fin todo vive en un solo lugar.",
+    quoteEn: "The custom ERP saved us hours of manual work every week. Everything finally lives in one place.",
+    initials: "JC",
+    name: "Jorge Cano",
+    role: "COO, Grupo Avanti",
+    roleEn: "COO, Grupo Avanti",
+    grad: "linear-gradient(135deg,#ffb07a,#ff5414)",
+    color: "#160a04",
+  },
+  {
+    quote: "Sus agentes de IA atienden a nuestros clientes 24/7. La experiencia es tan natural que casi nadie nota la diferencia.",
+    quoteEn: "Their AI agents handle our customers 24/7. The experience is so natural almost no one notices.",
+    initials: "LP",
+    name: "Lucía Paredes",
+    role: "CEO, Lumina",
+    roleEn: "CEO, Lumina",
+    grad: "linear-gradient(135deg,#7a4a2e,#3a1a0a)",
+    color: "#f6efe6",
+  },
 ];
 
-const fadeUp = {
-  initial: { opacity: 0, y: 24 },
-  whileInView: { opacity: 1, y: 0 },
-  viewport: { once: true, margin: "-80px" },
-  transition: { duration: 0.5 },
-};
-
-const heroStagger = {
-  hidden: {},
-  show: { transition: { staggerChildren: 0.08, delayChildren: 0.05 } },
-};
-
-const fadeUpItem = {
-  hidden: { opacity: 0, y: 20 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.5 } },
-};
-
-function CountUp({ target, prefix = "", suffix = "", duration = 1.4 }) {
-  const ref = useRef(null);
-  const isInView = useInView(ref, { once: true, margin: "-80px" });
-  const motionValue = useMotionValue(0);
-  const display = useTransform(motionValue, (v) => `${prefix}${Math.round(v)}${suffix}`);
-
-  useEffect(() => {
-    if (!isInView) return;
-    const controls = animate(motionValue, target, { duration, ease: "easeOut" });
-    return controls.stop;
-  }, [isInView, motionValue, target, duration]);
-
-  return <motion.span ref={ref}>{display}</motion.span>;
-}
-
-function TiltPanel({ children, className }) {
-  const ref = useRef(null);
-  const x = useMotionValue(0);
-  const y = useMotionValue(0);
-  const rotateX = useTransform(y, [-0.5, 0.5], ["6deg", "-6deg"]);
-  const rotateY = useTransform(x, [-0.5, 0.5], ["-6deg", "6deg"]);
-
-  const handleMouseMove = (e) => {
-    const rect = ref.current.getBoundingClientRect();
-    x.set((e.clientX - rect.left) / rect.width - 0.5);
-    y.set((e.clientY - rect.top) / rect.height - 0.5);
-  };
-  const handleMouseLeave = () => {
-    x.set(0);
-    y.set(0);
-  };
-
-  return (
-    <motion.div
-      ref={ref}
-      onMouseMove={handleMouseMove}
-      onMouseLeave={handleMouseLeave}
-      style={{ rotateX, rotateY, transformPerspective: 1000 }}
-      className={className}
-    >
-      {children}
-    </motion.div>
-  );
-}
+const trustNames = ["Norvex", "Lumina", "Grupo Avanti", "Quanta", "Mercurio"];
 
 export default function Landing() {
-  const heroRef = useRef(null);
-  const { scrollYProgress } = useScroll({ target: heroRef, offset: ["start start", "end start"] });
-  const glowY = useTransform(scrollYProgress, [0, 1], [0, -60]);
-  const glowY2 = useTransform(scrollYProgress, [0, 1], [0, -110]);
+  const [lang, setLang] = useState("es");
+  const t = (es, en) => (lang === "es" ? es : en);
 
   return (
-    <div className="min-h-screen bg-[#FAFAFA] text-brand-midnight">
+    <div className="min-h-screen bg-ink text-[#f6efe6] font-manrope overflow-x-hidden relative" style={{ maxWidth: "100vw" }}>
+      {/* ambient glows */}
+      <div
+        className="dc-glow-pulse absolute -top-32 -right-20 w-[720px] h-[720px] rounded-full pointer-events-none"
+        style={{ background: "radial-gradient(circle, rgba(255,84,20,.32), transparent 62%)", filter: "blur(20px)" }}
+      />
+      <div
+        className="absolute top-[1180px] -left-52 w-[560px] h-[560px] rounded-full pointer-events-none"
+        style={{ background: "radial-gradient(circle, rgba(255,122,46,.16), transparent 64%)", filter: "blur(20px)" }}
+      />
+
       {/* NAV */}
-      <header className="sticky top-0 z-30 backdrop-blur-xl bg-white/70 border-b border-black/5">
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+      <nav className="sticky top-0 z-50 backdrop-blur-xl border-b border-white/[0.07]" style={{ background: "rgba(12,10,8,.72)" }}>
+        <div className="max-w-[1200px] mx-auto px-7 h-16 flex items-center justify-between gap-6">
           <Link to="/" className="flex items-center" data-testid="landing-logo">
-            <img src={logo} alt="Innovagraf" className="h-9 w-auto" />
+            <span className="flex items-center bg-white rounded-lg px-3 py-1.5 shadow-lg">
+              <img src={logo} alt="Innovagraf" className="h-7 w-auto" />
+            </span>
           </Link>
-          <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-brand-midnight/70">
-            <a href="#servicios" className="hover:text-brand-orange transition">Servicios</a>
-            <a href="#casos" className="hover:text-brand-orange transition">Casos</a>
-            <a href="#proceso" className="hover:text-brand-orange transition">Proceso</a>
-            <Link to="/login" className="hover:text-brand-orange transition" data-testid="landing-login-link">
+          <div className="hidden md:flex items-center gap-7 text-sm font-medium text-[#c3b6a8]">
+            <a href="#servicios" className="hover:text-ember transition">{t("Servicios", "Services")}</a>
+            <a href="#soluciones" className="hover:text-ember transition">{t("Soluciones", "Solutions")}</a>
+            <a href="#testimonios" className="hover:text-ember transition">{t("Testimonios", "Testimonials")}</a>
+            <a href="#contacto" className="hover:text-ember transition">{t("Contacto", "Contact")}</a>
+          </div>
+          <div className="flex items-center gap-3.5">
+            <Link to="/login" className="hidden sm:inline text-sm text-[#c3b6a8] hover:text-ember transition" data-testid="landing-login-link">
               Login
             </Link>
-          </nav>
-          <Link to="/diagnostico" data-testid="landing-cta-nav">
-            <Button className="bg-brand-orange hover:bg-brand-orangeDark text-white rounded-full px-5">
-              Diagnóstico gratis
-            </Button>
-          </Link>
+            <div className="flex border border-white/[0.14] rounded-full overflow-hidden font-mono2 text-xs">
+              <button
+                onClick={() => setLang("es")}
+                className="border-none cursor-pointer px-[11px] py-1.5 font-bold transition"
+                style={{ background: lang === "es" ? "#ff7a2e" : "transparent", color: lang === "es" ? "#160a04" : "#c3b6a8" }}
+              >
+                ES
+              </button>
+              <button
+                onClick={() => setLang("en")}
+                className="border-none cursor-pointer px-[11px] py-1.5 transition"
+                style={{ background: lang === "en" ? "#ff7a2e" : "transparent", color: lang === "en" ? "#160a04" : "#c3b6a8" }}
+              >
+                EN
+              </button>
+            </div>
+            <Link to="/diagnostico" data-testid="landing-cta-nav">
+              <Button
+                className="rounded-full px-5 h-10 text-sm font-bold border-none"
+                style={{ background: "linear-gradient(140deg,#ff7a2e,#ff5414)", color: "#160a04", boxShadow: "0 8px 24px rgba(255,84,20,.32)" }}
+              >
+                {t("Solicitar demo", "Book a demo")}
+              </Button>
+            </Link>
+          </div>
         </div>
-      </header>
+      </nav>
 
       {/* HERO */}
-      <section ref={heroRef} className="relative overflow-hidden grain">
-        <div className="absolute inset-0 dotted-bg opacity-40 pointer-events-none" />
-        <motion.div
-          style={{ y: glowY }}
-          className="absolute -top-32 -left-32 w-[28rem] h-[28rem] bg-brand-orange/10 rounded-full blur-3xl pointer-events-none"
-        />
-        <motion.div
-          style={{ y: glowY2 }}
-          className="absolute top-1/3 -right-24 w-80 h-80 bg-brand-orange/10 rounded-full blur-3xl pointer-events-none"
-        />
-        <div className="max-w-7xl mx-auto px-6 pt-20 pb-24 grid lg:grid-cols-12 gap-10 items-center relative">
-          <motion.div variants={heroStagger} initial="hidden" animate="show" className="lg:col-span-7">
-            <motion.div
-              variants={fadeUpItem}
-              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-brand-midnight text-white text-xs font-bold tracking-[0.2em] uppercase mb-6"
-            >
-              <span className="relative flex h-1.5 w-1.5">
-                <span className="pulse-ring absolute inline-flex h-full w-full rounded-full bg-brand-orange" />
-                <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-brand-orange" />
-              </span>
-              Innovagraf Growth System
-            </motion.div>
-            <motion.h1
-              variants={fadeUpItem}
-              className="font-display text-5xl sm:text-6xl lg:text-7xl font-extrabold leading-[0.95] tracking-tighter"
-            >
-              Convertimos tu empresa en una{" "}
-              <span className="text-glow">máquina digital</span> de crecimiento.
-            </motion.h1>
-            <motion.p variants={fadeUpItem} className="mt-6 text-lg text-brand-midnight/70 max-w-xl leading-relaxed">
-              Diagnóstico inteligente + plan personalizado de páginas web, CRM, automatización,
-              chatbots y agentes de IA. Sin reuniones eternas, sin propuestas genéricas.
-            </motion.p>
-            <motion.div variants={fadeUpItem} className="mt-8 flex flex-wrap gap-3">
-              <Link to="/diagnostico" data-testid="hero-cta-primary">
-                <Button
-                  size="lg"
-                  className="bg-brand-orange hover:bg-brand-orangeDark text-white rounded-full px-6 h-12 text-base shadow-lg shadow-brand-orange/25 hover:shadow-xl hover:shadow-brand-orange/30"
-                >
-                  Iniciar diagnóstico gratis <ArrowRight size={18} className="ml-1" />
-                </Button>
-              </Link>
-              <a href="#servicios">
-                <Button
-                  size="lg"
-                  variant="outline"
-                  className="rounded-full px-6 h-12 text-base border-brand-midnight/20 hover:bg-white"
-                  data-testid="hero-cta-secondary"
-                >
-                  Ver servicios
-                </Button>
-              </a>
-            </motion.div>
-            <motion.div variants={fadeUpItem} className="mt-10 flex items-center gap-6 text-sm text-brand-midnight/60">
-              <div className="flex">
-                {[0, 1, 2, 3, 4].map((i) => (
-                  <Star key={i} size={16} className="fill-brand-orange text-brand-orange" />
-                ))}
-              </div>
-              <span>+120 empresas potenciadas en Centroamérica</span>
-            </motion.div>
-            <motion.div
-              variants={fadeUpItem}
-              className="mt-12 grid grid-cols-3 max-w-md divide-x divide-black/10 border-t border-black/10 pt-6"
-            >
-              {stats.map((s) => (
-                <div key={s.label} className="px-4 first:pl-0">
-                  <div className="font-display text-2xl font-bold tracking-tight">
-                    <CountUp target={s.target} prefix={s.prefix} suffix={s.suffix} />
-                  </div>
-                  <div className="text-xs text-brand-midnight/55 mt-1 leading-snug">{s.label}</div>
-                </div>
-              ))}
-            </motion.div>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.6, delay: 0.2 }}
-            className="lg:col-span-5"
-          >
-            <TiltPanel className="relative rounded-3xl overflow-hidden border border-white/10 shadow-2xl bg-brand-midnight h-[460px]">
-              <div className="absolute inset-0 circuit-grid" />
-              <div className="absolute inset-0 bg-gradient-to-br from-brand-midnight via-brand-midnight/95 to-brand-slate/90" />
-
-              <div className="absolute inset-0 flex items-center justify-center">
-                <span className="pulse-ring absolute h-28 w-28 rounded-full border border-brand-orange/40" />
-                <span className="pulse-ring absolute h-28 w-28 rounded-full border border-brand-orange/40 [animation-delay:0.8s]" />
-                <div className="relative h-16 w-16 rounded-2xl bg-brand-orange/15 border border-brand-orange/30 flex items-center justify-center backdrop-blur-md">
-                  <Bot size={28} className="text-brand-orange" />
-                </div>
-              </div>
-
-              <motion.div
-                initial={{ opacity: 0, y: -12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: 0.5 }}
-                className="absolute top-6 right-6 flex items-center gap-2 px-3 py-2 rounded-full bg-white/10 backdrop-blur-md border border-white/15 text-white text-xs font-semibold"
-              >
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                Diagnóstico en vivo
-              </motion.div>
-
-              <motion.div
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: 0.7 }}
-                className="float-y absolute top-6 left-6 flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/15 text-white text-xs font-semibold"
-              >
-                <TrendingUp size={14} className="text-brand-orange" />
-                +184% leads
-              </motion.div>
-
-              <div className="absolute bottom-24 left-6 right-6">
-                <svg viewBox="0 0 200 60" className="w-full h-14 overflow-visible">
-                  <motion.path
-                    d="M0,48 L30,40 L60,42 L90,22 L130,26 L160,8 L200,12"
-                    fill="none"
-                    stroke="#FF4F00"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    initial={{ pathLength: 0, opacity: 0 }}
-                    whileInView={{ pathLength: 1, opacity: 1 }}
-                    viewport={{ once: true }}
-                    transition={{ duration: 1.4, ease: "easeOut", delay: 0.4 }}
-                  />
-                </svg>
-              </div>
-
-              <div className="absolute bottom-6 left-6 right-6 text-white">
-                <div className="text-xs tracking-[0.3em] uppercase text-brand-orange font-bold mb-2">
-                  Madurez digital
-                </div>
-                <div className="font-display text-4xl font-bold">
-                  <CountUp target={58} prefix="+" suffix=" puntos" />
-                </div>
-                <div className="text-white/70 text-sm mt-1">
-                  Score promedio que aumentan nuestros clientes en 6 meses.
-                </div>
-              </div>
-            </TiltPanel>
-          </motion.div>
-        </div>
-      </section>
-
-      {/* SERVICES */}
-      <section id="servicios" className="py-24 bg-white border-y border-black/5">
-        <div className="max-w-7xl mx-auto px-6">
-          <motion.div {...fadeUp} className="max-w-2xl mb-16">
-            <div className="text-xs tracking-[0.3em] uppercase text-brand-orange font-bold mb-3">Servicios</div>
-            <h2 className="font-display text-4xl sm:text-5xl font-bold tracking-tighter">
-              Todo lo que tu empresa necesita para crecer digital.
-            </h2>
-            <p className="mt-4 text-brand-midnight/70 text-lg">
-              Soluciones integradas, no parches. Cada servicio se diseña para conectar con los
-              demás y multiplicar tus resultados.
-            </p>
-          </motion.div>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {services.map((s, idx) => (
-              <motion.div
-                key={s.name}
-                initial={{ opacity: 0, y: 18 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.35, delay: idx * 0.04 }}
-                className="group bg-white border border-black/10 rounded-2xl p-7 hover:border-brand-orange/40 hover:shadow-xl hover:shadow-brand-orange/10 hover:-translate-y-1 transition-all"
-                data-testid={`service-card-${s.name.toLowerCase().replace(/\s+/g, "-")}`}
-              >
-                <div className="w-12 h-12 rounded-xl bg-brand-orange/10 text-brand-orange flex items-center justify-center mb-5 transition-all group-hover:bg-brand-orange group-hover:text-white group-hover:scale-110 group-hover:rotate-3">
-                  <s.icon size={22} />
-                </div>
-                <h3 className="font-display font-bold text-xl mb-2">{s.name}</h3>
-                <p className="text-sm text-brand-midnight/65 leading-relaxed">{s.desc}</p>
-              </motion.div>
-            ))}
+      <header className="relative z-10 max-w-[1200px] mx-auto px-7 pt-16 sm:pt-20 pb-14 grid lg:grid-cols-2 gap-12 items-center">
+        <div className="dc-fade-up">
+          <div className="font-mono2 text-xs tracking-[0.22em] mb-5" style={{ color: "#ff8a44" }}>
+            CRM · ERP · {t("IA", "AI")} · WEB · CHATBOTS
           </div>
-        </div>
-      </section>
-
-      {/* PROCESS */}
-      <section id="proceso" className="py-24 bg-brand-midnight text-white relative overflow-hidden grain">
-        <div className="absolute inset-0 circuit-grid opacity-20 pointer-events-none" />
-        <div className="glow-breathe absolute -top-20 -right-20 w-80 h-80 bg-brand-orange/30 rounded-full blur-3xl" />
-        <div className="max-w-7xl mx-auto px-6 relative">
-          <motion.div {...fadeUp} className="max-w-2xl mb-16">
-            <div className="text-xs tracking-[0.3em] uppercase text-brand-orange font-bold mb-3">Proceso</div>
-            <h2 className="font-display text-4xl sm:text-5xl font-bold tracking-tighter">
-              De diagnóstico a propuesta en 24 horas.
-            </h2>
-          </motion.div>
-          <div className="grid md:grid-cols-3 gap-6">
-            {steps.map((s, idx) => (
-              <motion.div
-                key={s.n}
-                initial={{ opacity: 0, y: 18 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: "-80px" }}
-                transition={{ duration: 0.4, delay: idx * 0.08 }}
-                className="border border-white/10 rounded-2xl p-7 bg-white/5 hover:bg-white/10 hover:border-brand-orange/30 transition-all"
-                data-testid={`process-step-${s.n}`}
+          <h1 className="font-grotesk font-semibold text-[clamp(34px,6.2vw,62px)] leading-[1.04] tracking-tight mb-6">
+            {t("Automatiza tu negocio con ", "Automate your business with ")}
+            <span className="font-serifItalic italic font-normal" style={{ color: "#ff7a2e" }}>
+              {t("inteligencia", "intelligence")}
+            </span>
+            {t(" que trabaja por ti.", " that works for you.")}
+          </h1>
+          <p className="text-lg leading-[1.62] max-w-[520px] mb-8" style={{ color: "#b6a99a" }}>
+            {t(
+              "Innovagraf diseña CRM, ERP, páginas web, chatbots, asistentes de voz y agentes de IA que se integran a tu operación y multiplican tus resultados.",
+              "Innovagraf builds CRMs, ERPs, websites, chatbots, voice assistants and AI agents that plug into your operation and multiply your results."
+            )}
+          </p>
+          <div className="flex flex-wrap gap-3.5 items-center mb-9">
+            <Link to="/diagnostico" data-testid="hero-cta-primary">
+              <Button
+                className="rounded-full px-7 h-[52px] text-[15.5px] font-bold border-none"
+                style={{ background: "linear-gradient(140deg,#ff7a2e,#ff5414)", color: "#160a04", boxShadow: "0 12px 32px rgba(255,84,20,.34)" }}
               >
-                <div className="font-display text-5xl font-bold text-brand-orange mb-3">{s.n}</div>
-                <div className="font-semibold text-xl mb-2">{s.t}</div>
-                <div className="text-white/70 text-sm">{s.d}</div>
-                <motion.div
-                  initial={{ scaleX: 0 }}
-                  whileInView={{ scaleX: 1 }}
-                  viewport={{ once: true, margin: "-80px" }}
-                  transition={{ duration: 0.6, delay: idx * 0.08 + 0.2, ease: "easeOut" }}
-                  className="mt-5 h-px w-full bg-gradient-to-r from-brand-orange/80 to-transparent origin-left"
-                />
-              </motion.div>
-            ))}
+                {t("Solicitar demo", "Book a demo")} <ArrowRight size={18} className="ml-1" />
+              </Button>
+            </Link>
+            <a href="#servicios">
+              <Button
+                variant="outline"
+                className="rounded-full px-6 h-[52px] text-[15.5px] font-semibold border-white/[0.16] text-[#f6efe6] bg-transparent hover:bg-white/5"
+              >
+                {t("Ver soluciones", "Explore solutions")}
+              </Button>
+            </a>
           </div>
-        </div>
-      </section>
-
-      {/* CASES */}
-      <section id="casos" className="py-24 bg-white">
-        <div className="max-w-7xl mx-auto px-6">
-          <motion.div {...fadeUp} className="max-w-2xl mb-16">
-            <div className="text-xs tracking-[0.3em] uppercase text-brand-orange font-bold mb-3">
-              Casos de éxito
+          <div className="flex items-center gap-3.5">
+            <div className="flex">
+              <span className="w-[38px] h-[38px] rounded-full border-2 border-ink" style={{ background: "linear-gradient(135deg,#ff7a2e,#b8330a)" }} />
+              <span className="w-[38px] h-[38px] rounded-full border-2 border-ink -ml-3" style={{ background: "linear-gradient(135deg,#ffb07a,#ff5414)" }} />
+              <span className="w-[38px] h-[38px] rounded-full border-2 border-ink -ml-3" style={{ background: "linear-gradient(135deg,#7a4a2e,#3a1a0a)" }} />
             </div>
-            <h2 className="font-display text-4xl sm:text-5xl font-bold tracking-tighter">
-              Empresas que ya crecen con Innovagraf.
-            </h2>
-          </motion.div>
-          <div className="grid lg:grid-cols-3 gap-6">
-            {cases.map((c, idx) => (
-              <motion.div
-                key={c.company}
-                initial={{ opacity: 0, y: 18 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: "-80px" }}
-                transition={{ duration: 0.4, delay: idx * 0.08 }}
-                className="group border border-black/10 rounded-2xl p-7 hover:shadow-xl hover:shadow-brand-orange/10 hover:-translate-y-1 hover:border-brand-orange/30 transition-all bg-white"
-                data-testid={`case-${c.company.toLowerCase().replace(/\s+/g, "-")}`}
-              >
-                <div className="flex items-center justify-between mb-4">
-                  <Quote size={22} className="text-brand-orange transition-transform group-hover:-rotate-6" />
-                  <div className="flex">
-                    {[0, 1, 2, 3, 4].map((i) => (
-                      <motion.span
-                        key={i}
-                        initial={{ opacity: 0, scale: 0.5 }}
-                        whileInView={{ opacity: 1, scale: 1 }}
-                        viewport={{ once: true }}
-                        transition={{ duration: 0.25, delay: idx * 0.08 + i * 0.05 }}
+            <span className="text-[13.5px]" style={{ color: "#9b8e80" }}>
+              {t("+120 equipos ya automatizan con Innovagraf", "+120 teams already automate with Innovagraf")}
+            </span>
+          </div>
+        </div>
+
+        <div className="relative dc-fade-up" style={{ animationDuration: "0.9s" }}>
+          <div
+            className="relative h-[480px] rounded-[20px] overflow-hidden border border-white/[0.12]"
+            style={{ background: "#0f0c0a", boxShadow: "0 30px 80px rgba(0,0,0,.5)" }}
+          >
+            {/* window bar */}
+            <div className="h-10 flex items-center gap-[7px] px-[15px] relative z-[3] border-b border-white/[0.07]" style={{ background: "#171310" }}>
+              <span className="w-[11px] h-[11px] rounded-full" style={{ background: "#ff5f57" }} />
+              <span className="w-[11px] h-[11px] rounded-full" style={{ background: "#febc2e" }} />
+              <span className="w-[11px] h-[11px] rounded-full" style={{ background: "#28c840" }} />
+              <span className="dc-tab-excel absolute inset-x-0 text-center font-mono2 text-[11px]" style={{ color: "#8a7d70" }}>
+                Ventas.xlsx
+              </span>
+              <span className="dc-tab-crm absolute inset-x-0 text-center font-mono2 text-[11px]" style={{ color: "#ff8a44" }}>
+                CRM — Pipeline
+              </span>
+            </div>
+
+            <div className="relative h-[440px]">
+              {/* EXCEL LAYER */}
+              <div className="dc-excel-layer absolute inset-0 bg-white flex flex-col" style={{ fontFamily: "Arial, Helvetica, sans-serif" }}>
+                <div className="h-[34px] flex items-center px-3" style={{ background: "#107c41" }}>
+                  <span className="text-white font-bold text-[13px] tracking-wide">Σ  Ventas</span>
+                  <span className="flex-1" />
+                  <span className="text-[13px] tracking-[3px]" style={{ color: "#bfe8cf" }}>▦ ▤ ⌗ Σ</span>
+                </div>
+                <div className="h-6 flex items-center px-2.5 gap-2.5" style={{ background: "#f3f5f6", borderBottom: "1px solid #d6dadd" }}>
+                  <span className="text-[10px] bg-white border rounded-sm px-[7px] py-px" style={{ color: "#6b7378", borderColor: "#d6dadd", fontFamily: "'Courier New',monospace" }}>B3</span>
+                  <span className="text-[10px]" style={{ color: "#9aa1a6", fontFamily: "'Courier New',monospace" }}>fx &nbsp; Negociación</span>
+                </div>
+                <div className="flex-1 grid text-[11.5px]" style={{ gridTemplateRows: "18px repeat(7,1fr)", color: "#2a2e31" }}>
+                  <div className="grid text-[9.5px]" style={{ gridTemplateColumns: "30px 1.5fr 1.2fr .95fr .9fr", background: "#f3f5f6", color: "#9aa1a6" }}>
+                    <div style={{ borderRight: "1px solid #d6dadd", borderBottom: "1px solid #d6dadd" }} />
+                    <div className="flex items-center justify-center" style={{ borderRight: "1px solid #e3e7e9", borderBottom: "1px solid #d6dadd" }}>A</div>
+                    <div className="flex items-center justify-center" style={{ borderRight: "1px solid #e3e7e9", borderBottom: "1px solid #d6dadd" }}>B</div>
+                    <div className="flex items-center justify-center" style={{ borderRight: "1px solid #e3e7e9", borderBottom: "1px solid #d6dadd" }}>C</div>
+                    <div className="flex items-center justify-center" style={{ borderBottom: "1px solid #d6dadd" }}>D</div>
+                  </div>
+                  <div className="grid font-bold" style={{ gridTemplateColumns: "30px 1.5fr 1.2fr .95fr .9fr", background: "#eef6f1" }}>
+                    <div className="flex items-center justify-center font-normal text-[10px]" style={{ background: "#f3f5f6", color: "#9aa1a6", borderRight: "1px solid #d6dadd", borderBottom: "1px solid #e3e7e9" }}>1</div>
+                    <div className="flex items-center px-[9px]" style={{ borderRight: "1px solid #e3e7e9", borderBottom: "1px solid #e3e7e9" }}>Cliente</div>
+                    <div className="flex items-center px-[9px]" style={{ borderRight: "1px solid #e3e7e9", borderBottom: "1px solid #e3e7e9" }}>Etapa</div>
+                    <div className="flex items-center justify-end px-[9px]" style={{ borderRight: "1px solid #e3e7e9", borderBottom: "1px solid #e3e7e9" }}>Monto</div>
+                    <div className="flex items-center px-[9px]" style={{ borderBottom: "1px solid #e3e7e9" }}>Cierre</div>
+                  </div>
+                  {[
+                    ["2", "Norvex", "Negociación", "12,400", "12/03", true],
+                    ["3", "Lumina", "Propuesta", "8,900", "15/03"],
+                    ["4", "Grupo Avanti", "Ganado", "21,300", "09/03"],
+                    ["5", "Quanta", "Contacto", "4,750", "20/03"],
+                    ["6", "Mercurio", "Propuesta", "15,600", "18/03"],
+                  ].map(([row, cliente, etapa, monto, cierre, highlight]) => (
+                    <div key={row} className="grid" style={{ gridTemplateColumns: "30px 1.5fr 1.2fr .95fr .9fr" }}>
+                      <div className="flex items-center justify-center text-[10px]" style={{ background: "#f3f5f6", color: "#9aa1a6", borderRight: "1px solid #d6dadd", borderBottom: "1px solid #e3e7e9" }}>{row}</div>
+                      <div className="flex items-center px-[9px]" style={{ borderRight: "1px solid #e3e7e9", borderBottom: "1px solid #e3e7e9" }}>{cliente}</div>
+                      <div
+                        className="flex items-center px-[9px]"
+                        style={highlight ? { border: "1.5px solid #107c41" } : { borderRight: "1px solid #e3e7e9", borderBottom: "1px solid #e3e7e9" }}
                       >
-                        <Star size={12} className="fill-brand-orange text-brand-orange" />
-                      </motion.span>
+                        {etapa}
+                      </div>
+                      <div className="flex items-center justify-end px-[9px]" style={{ borderRight: "1px solid #e3e7e9", borderBottom: "1px solid #e3e7e9" }}>{monto}</div>
+                      <div className="flex items-center px-[9px]" style={{ borderBottom: "1px solid #e3e7e9", color: "#6b7378" }}>{cierre}</div>
+                    </div>
+                  ))}
+                  <div className="grid" style={{ gridTemplateColumns: "30px 1.5fr 1.2fr .95fr .9fr" }}>
+                    <div className="flex items-center justify-center text-[10px]" style={{ background: "#f3f5f6", color: "#9aa1a6", borderRight: "1px solid #d6dadd" }}>7</div>
+                    <div style={{ borderRight: "1px solid #e3e7e9" }} />
+                    <div style={{ borderRight: "1px solid #e3e7e9" }} />
+                    <div style={{ borderRight: "1px solid #e3e7e9" }} />
+                    <div />
+                  </div>
+                </div>
+                <div
+                  className="dc-scan-line absolute left-0 right-0 h-0.5 pointer-events-none"
+                  style={{ background: "linear-gradient(90deg,transparent,#ff7a2e,transparent)", boxShadow: "0 0 14px 3px rgba(255,122,46,.6)" }}
+                />
+              </div>
+
+              {/* CRM LAYER */}
+              <div className="dc-crm-layer absolute inset-0 flex" style={{ background: "linear-gradient(160deg,#15110c,#0f0c0a)" }}>
+                <div className="w-12 border-r border-white/[0.06] flex flex-col items-center gap-4 pt-4" style={{ background: "#171310" }}>
+                  <span className="w-6 h-6 rounded-[7px]" style={{ background: "linear-gradient(140deg,#ff7a2e,#ff5414)" }} />
+                  <span className="w-[22px] h-[22px] rounded-md" style={{ background: "rgba(255,122,46,.16)", border: "1px solid rgba(255,122,46,.4)" }} />
+                  <span className="w-[22px] h-[22px] rounded-md bg-white/5" />
+                  <span className="w-[22px] h-[22px] rounded-md bg-white/5" />
+                </div>
+                <div className="flex-1 px-[17px] py-[15px] flex flex-col gap-[13px] overflow-hidden">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <div className="font-grotesk font-semibold text-[15px] text-[#f6efe6]">{t("Pipeline de ventas", "Sales pipeline")}</div>
+                      <div className="text-[10.5px] mt-0.5" style={{ color: "#9b8e80" }}>
+                        {t("6 tratos · actualizado en tiempo real", "6 deals · updated in real time")}
+                      </div>
+                    </div>
+                    <span
+                      className="dc-pulse-dot font-bold text-[11px] px-[13px] py-[7px] rounded-full"
+                      style={{ background: "linear-gradient(140deg,#ff7a2e,#ff5414)", color: "#160a04" }}
+                    >
+                      + {t("Nuevo trato", "New deal")}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-[9px]">
+                    <div className="rounded-[11px] px-[11px] py-2.5 bg-white/[0.04] border border-white/[0.08]">
+                      <div className="text-[9.5px] tracking-wide" style={{ color: "#9b8e80" }}>{t("TRATOS", "DEALS")}</div>
+                      <div className="font-grotesk font-bold text-[19px] mt-[3px]" style={{ color: "#ff8a44" }}>24</div>
+                    </div>
+                    <div className="rounded-[11px] px-[11px] py-2.5 bg-white/[0.04] border border-white/[0.08]">
+                      <div className="text-[9.5px] tracking-wide" style={{ color: "#9b8e80" }}>{t("GANADOS", "WON")}</div>
+                      <div className="font-grotesk font-bold text-[19px] mt-[3px]" style={{ color: "#ff8a44" }}>8</div>
+                    </div>
+                    <div className="rounded-[11px] px-[11px] py-2.5 bg-white/[0.04] border border-white/[0.08]">
+                      <div className="text-[9.5px] tracking-wide" style={{ color: "#9b8e80" }}>{t("VALOR", "VALUE")}</div>
+                      <div className="font-grotesk font-bold text-[19px] mt-[3px]" style={{ color: "#ff8a44" }}>Q63k</div>
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-[9px]">
+                    {[
+                      { i: "N", grad: "linear-gradient(135deg,#ff7a2e,#b8330a)", color: "#160a04", name: "Norvex", stage: t("Negociación", "Negotiation"), amount: "Q12,400", pct: "70%", width: "70%" },
+                      { i: "L", grad: "linear-gradient(135deg,#ffb07a,#ff5414)", color: "#160a04", name: "Lumina", stage: t("Propuesta", "Proposal"), amount: "Q8,900", pct: "45%", width: "45%" },
+                      { i: "A", grad: "linear-gradient(135deg,#7a4a2e,#3a1a0a)", color: "#f6efe6", name: "Grupo Avanti", stage: t("Cerrado", "Closed"), amount: "Q21,300", pct: t("Ganado", "Won"), width: "100%", won: true },
+                    ].map((d) => (
+                      <div key={d.name} className="dc-rise-in rounded-xl px-3 py-[11px] flex items-center gap-[11px] bg-white/[0.04] border border-white/[0.08]">
+                        <span
+                          className="flex-none w-[34px] h-[34px] rounded-full flex items-center justify-center font-grotesk font-bold text-[13px]"
+                          style={{ background: d.grad, color: d.color }}
+                        >
+                          {d.i}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex justify-between items-center">
+                            <span className="text-[13px] font-semibold text-[#f6efe6]">{d.name}</span>
+                            <span className="text-xs font-bold" style={{ color: d.won ? "#3fbf6a" : "#ff8a44" }}>{d.pct}</span>
+                          </div>
+                          <div className="text-[10.5px] my-[3px] mb-[7px]" style={{ color: "#9b8e80" }}>{d.stage} · {d.amount}</div>
+                          <div className="h-1 rounded-full overflow-hidden bg-white/[0.08]">
+                            <div
+                              className="dc-bar-grow h-full rounded-full"
+                              style={{ width: d.width, background: d.won ? "linear-gradient(90deg,#2f9e57,#3fbf6a)" : "linear-gradient(90deg,#ff7a2e,#ff5414)" }}
+                            />
+                          </div>
+                        </div>
+                      </div>
                     ))}
                   </div>
                 </div>
-                <p className="text-brand-midnight leading-relaxed mb-6">&ldquo;{c.quote}&rdquo;</p>
-                <div className="flex items-center gap-3 mb-5">
-                  <div className="w-9 h-9 rounded-full bg-brand-orange/10 text-brand-orange font-display font-bold flex items-center justify-center text-sm shrink-0">
-                    {c.person.charAt(0)}
-                  </div>
-                  <div>
-                    <div className="text-sm font-semibold leading-tight">{c.person}</div>
-                    <div className="text-xs text-brand-midnight/55">{c.company} · {c.industry}</div>
-                  </div>
-                </div>
-                <div className="inline-flex items-center gap-2 text-sm font-semibold text-brand-orange bg-brand-orange/5 rounded-full px-3 py-1.5">
-                  <Check size={16} /> {c.result}
-                </div>
-              </motion.div>
+              </div>
+            </div>
+          </div>
+
+          {/* metrics row */}
+          <div className="flex gap-2.5 mt-4">
+            <div className="flex-1 rounded-2xl px-[15px] py-[13px] border border-white/10" style={{ background: "rgba(20,15,11,.7)" }}>
+              <div className="font-grotesk font-bold text-[22px]" style={{ color: "#ff8a44" }}>+40%</div>
+              <div className="text-[11.5px]" style={{ color: "#b6a99a" }}>{t("en ventas", "in sales")}</div>
+            </div>
+            <div className="flex-1 rounded-2xl px-[15px] py-[13px] border border-white/10" style={{ background: "rgba(20,15,11,.7)" }}>
+              <div className="font-grotesk font-bold text-[22px]" style={{ color: "#ff8a44" }}>−60%</div>
+              <div className="text-[11.5px]" style={{ color: "#b6a99a" }}>{t("tareas manuales", "manual tasks")}</div>
+            </div>
+            <div className="flex-1 rounded-2xl px-[15px] py-[13px] border border-white/10" style={{ background: "rgba(20,15,11,.7)" }}>
+              <div className="font-grotesk font-bold text-[22px]" style={{ color: "#ff8a44" }}>24/7</div>
+              <div className="text-[11.5px]" style={{ color: "#b6a99a" }}>{t("atención con IA", "AI support")}</div>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* TRUST STRIP */}
+      <section className="relative z-10 max-w-[1200px] mx-auto px-7 pb-5">
+        <div className="rounded-[18px] border border-white/[0.08] px-8 py-6 grid md:grid-cols-[1fr_auto] gap-7 items-center" style={{ background: "rgba(22,17,12,.5)" }}>
+          <div>
+            <div className="font-mono2 text-[11px] tracking-[0.18em] mb-4" style={{ color: "#7c7065" }}>
+              {t("CONFÍAN EN NUESTRA TECNOLOGÍA", "TRUSTED BY GROWING TEAMS")}
+            </div>
+            <div className="flex flex-wrap gap-7 items-center opacity-60 font-grotesk font-semibold text-lg text-[#cabcae]">
+              {trustNames.map((n) => (
+                <span key={n}>{n}</span>
+              ))}
+            </div>
+          </div>
+          <div className="flex gap-8 md:pl-8 md:border-l border-white/[0.08] flex-wrap">
+            <div>
+              <div className="font-grotesk font-bold text-[26px]" style={{ color: "#ff8a44" }}>120+</div>
+              <div className="text-xs" style={{ color: "#9b8e80" }}>{t("Clientes activos", "Active clients")}</div>
+            </div>
+            <div>
+              <div className="font-grotesk font-bold text-[26px]" style={{ color: "#ff8a44" }}>320+</div>
+              <div className="text-xs" style={{ color: "#9b8e80" }}>{t("Proyectos entregados", "Projects delivered")}</div>
+            </div>
+            <div>
+              <div className="font-grotesk font-bold text-[26px]" style={{ color: "#ff8a44" }}>1M+</div>
+              <div className="text-xs" style={{ color: "#9b8e80" }}>{t("Interacciones IA/mes", "AI interactions/mo")}</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* SERVICIOS */}
+      <section id="servicios" className="relative z-10 max-w-[1200px] mx-auto px-7 py-16">
+        <div className="flex justify-between items-end flex-wrap gap-5 mb-9">
+          <div className="max-w-[560px]">
+            <div className="font-mono2 text-xs tracking-[0.2em] mb-4" style={{ color: "#ff8a44" }}>
+              {t("TODO EN UN SOLO LUGAR", "EVERYTHING IN ONE PLACE")}
+            </div>
+            <h2 className="font-grotesk font-semibold text-[clamp(28px,4.6vw,40px)] leading-[1.1] tracking-tight">
+              {t("Una sola alianza para construir, automatizar y escalar.", "One partner to build, automate and scale.")}
+            </h2>
+          </div>
+        </div>
+
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {services.map((s) => (
+            <div
+              key={s.key}
+              className={`rounded-[18px] p-6 border ${s.wide ? "sm:col-span-2 flex gap-5 items-start" : ""}`}
+              style={
+                s.accent
+                  ? { background: "linear-gradient(140deg, rgba(255,122,46,.14), rgba(255,84,20,.05))", borderColor: "rgba(255,122,46,.24)" }
+                  : { background: "rgba(22,17,12,.6)", borderColor: "rgba(255,255,255,.08)" }
+              }
+              data-testid={`service-card-${s.key}`}
+            >
+              <div
+                className={`rounded-xl flex items-center justify-center ${s.wide ? "flex-none w-12 h-12" : "w-11 h-11 mb-[18px]"}`}
+                style={{ background: s.accent ? "rgba(255,122,46,.2)" : "rgba(255,122,46,.12)" }}
+              >
+                <s.icon size={s.wide ? 24 : 22} style={{ color: "#ff8a44" }} strokeWidth={1.6} />
+              </div>
+              <div>
+                <h3 className={`font-grotesk font-semibold ${s.wide ? "text-[21px] mb-2" : "text-lg mb-[7px]"}`}>
+                  {lang === "es" ? s.name : s.nameEn || s.name}
+                </h3>
+                <p className={s.wide ? "text-[15px] leading-[1.55]" : "text-sm leading-relaxed"} style={{ color: s.wide || s.accent ? "#b6a99a" : "#9b8e80" }}>
+                  {lang === "es" ? s.desc : s.descEn}
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* SOLUCIONES */}
+      <section id="soluciones" className="relative z-10 max-w-[1200px] mx-auto px-7 py-11">
+        <div
+          className="rounded-[22px] border border-white/[0.08] p-9 sm:p-11 grid md:grid-cols-2 gap-10 items-center"
+          style={{ background: "linear-gradient(120deg, rgba(255,84,20,.1), rgba(22,17,12,.4))" }}
+        >
+          <div>
+            <h2 className="font-grotesk font-semibold text-[clamp(24px,3.6vw,32px)] leading-[1.12] tracking-tight mb-3.5">
+              {t("De la idea al sistema funcionando, sin fricción.", "From idea to a working system, with zero friction.")}
+            </h2>
+            <p className="text-[15.5px] leading-[1.6]" style={{ color: "#b6a99a" }}>
+              {t(
+                "Diseñamos, integramos y mantenemos tu stack tecnológico para que tu equipo se enfoque en crecer.",
+                "We design, integrate and maintain your tech stack so your team can focus on growing."
+              )}
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-3.5">
+            {steps.map((s) => (
+              <div key={s.n} className="rounded-2xl p-[18px]" style={{ background: "rgba(12,10,8,.45)", border: "1px solid rgba(255,255,255,.07)" }}>
+                <div className="font-mono2 text-[13px] mb-1.5" style={{ color: "#ff8a44" }}>{s.n}</div>
+                <div className="text-sm" style={{ color: "#cabcae" }}>{t(s.es, s.en)}</div>
+              </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* CTA */}
-      <section className="py-24 bg-[#FAFAFA]">
-        <div className="max-w-5xl mx-auto px-6">
-          <motion.div
-            initial={{ opacity: 0, y: 24 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-80px" }}
-            transition={{ duration: 0.5 }}
-            className="bg-brand-midnight text-white rounded-3xl p-12 md:p-16 relative overflow-hidden grain shadow-2xl"
-          >
-            <div className="absolute inset-0 circuit-grid opacity-15 pointer-events-none" />
-            <div className="glow-breathe absolute -bottom-20 -left-20 w-80 h-80 bg-brand-orange/30 rounded-full blur-3xl" />
-            <div className="relative grid md:grid-cols-2 gap-8 items-center">
-              <div>
-                <h2 className="font-display text-4xl sm:text-5xl font-bold tracking-tighter">
-                  ¿Listo para tu diagnóstico?
-                </h2>
-                <p className="mt-4 text-white/70 text-lg">
-                  Menos de 5 minutos. Recibe un plan personalizado con IA y propuesta detallada.
-                </p>
-              </div>
-              <div className="flex md:justify-end">
-                <Link to="/diagnostico" data-testid="bottom-cta">
-                  <Button
-                    size="lg"
-                    className="bg-brand-orange hover:bg-brand-orangeDark text-white rounded-full px-8 h-14 text-base shadow-lg shadow-brand-orange/25 hover:shadow-xl hover:shadow-brand-orange/30"
-                  >
-                    Empezar ahora <ArrowRight size={18} className="ml-1" />
-                  </Button>
-                </Link>
+      {/* TESTIMONIOS */}
+      <section id="testimonios" className="relative z-10 max-w-[1200px] mx-auto px-7 py-14">
+        <div className="text-center mb-10">
+          <div className="font-mono2 text-xs tracking-[0.2em] mb-3.5" style={{ color: "#ff8a44" }}>
+            {t("TESTIMONIOS", "TESTIMONIALS")}
+          </div>
+          <h2 className="font-grotesk font-semibold text-[clamp(26px,4.4vw,38px)] tracking-tight">
+            {t("Negocios que crecen con nosotros.", "Businesses growing with us.")}
+          </h2>
+        </div>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {testimonials.map((tm) => (
+            <div key={tm.name} className="rounded-[18px] p-7 border border-white/[0.08]" style={{ background: "rgba(22,17,12,.6)" }}>
+              <div className="font-serifItalic text-[46px] leading-[0.5] h-6" style={{ color: "#ff8a44" }}>&ldquo;</div>
+              <p className="text-[15.5px] leading-[1.6] mb-[22px]" style={{ color: "#e3d8cb" }}>
+                {t(tm.quote, tm.quoteEn)}
+              </p>
+              <div className="flex items-center gap-3">
+                <span
+                  className="w-[42px] h-[42px] rounded-full flex items-center justify-center font-grotesk font-bold"
+                  style={{ background: tm.grad, color: tm.color }}
+                >
+                  {tm.initials}
+                </span>
+                <div>
+                  <div className="font-semibold text-[14.5px]">{tm.name}</div>
+                  <div className="text-[12.5px]" style={{ color: "#9b8e80" }}>{t(tm.role, tm.roleEn)}</div>
+                </div>
               </div>
             </div>
-          </motion.div>
+          ))}
         </div>
       </section>
 
-      <footer className="border-t border-black/5 bg-white">
-        <div className="max-w-7xl mx-auto px-6 py-14 grid sm:grid-cols-2 lg:grid-cols-4 gap-10">
-          <div className="lg:col-span-2">
-            <Link to="/" className="flex items-center mb-4">
-              <img src={logo} alt="Innovagraf" className="h-9 w-auto" />
-            </Link>
-            <p className="text-sm text-brand-midnight/60 max-w-sm leading-relaxed">
-              Diagnóstico inteligente y ejecución de páginas web, CRM, automatización, chatbots y
-              agentes de IA para empresas que quieren crecer en serio.
+      {/* CONTACTO / CTA */}
+      <section id="contacto" className="relative z-10 max-w-[1200px] mx-auto px-7 py-14 pb-6">
+        <div
+          className="rounded-[24px] border p-9 sm:p-11 grid md:grid-cols-2 gap-10 items-center"
+          style={{ borderColor: "rgba(255,122,46,.2)", background: "radial-gradient(120% 140% at 0% 0%, rgba(255,84,20,.14), rgba(22,17,12,.5))" }}
+        >
+          <div>
+            <div className="font-mono2 text-xs tracking-[0.2em] mb-3.5" style={{ color: "#ff8a44" }}>
+              {t("CONTACTO", "CONTACT")}
+            </div>
+            <h2 className="font-grotesk font-semibold text-[clamp(24px,4vw,36px)] leading-[1.1] tracking-tight mb-3.5">
+              {t("Hablemos de tu próximo proyecto.", "Let's talk about your next project.")}
+            </h2>
+            <p className="text-[15.5px] leading-[1.6] mb-6" style={{ color: "#b6a99a" }}>
+              {t("Cuéntanos qué necesitas y te respondemos en menos de 24 horas.", "Tell us what you need and we reply in under 24 hours.")}
             </p>
-          </div>
-          <div>
-            <div className="text-xs tracking-[0.2em] uppercase font-bold text-brand-midnight/40 mb-4">
-              Producto
-            </div>
-            <div className="flex flex-col gap-3 text-sm text-brand-midnight/70">
-              <a href="#servicios" className="hover:text-brand-orange transition">Servicios</a>
-              <a href="#casos" className="hover:text-brand-orange transition">Casos de éxito</a>
-              <a href="#proceso" className="hover:text-brand-orange transition">Proceso</a>
-              <Link to="/diagnostico" className="hover:text-brand-orange transition">Diagnóstico gratis</Link>
+            <div className="flex flex-col gap-3 text-[14.5px]" style={{ color: "#cabcae" }}>
+              <div className="flex items-center gap-2.5">
+                <span style={{ color: "#ff8a44" }}>✉</span> contacto@innovagraf.com.gt
+              </div>
+              <div className="flex items-center gap-2.5">
+                <span style={{ color: "#ff8a44" }}>●</span> {t("Lun – Vie · 9:00 a 18:00", "Mon – Fri · 9:00 to 18:00")}
+              </div>
             </div>
           </div>
-          <div>
-            <div className="text-xs tracking-[0.2em] uppercase font-bold text-brand-midnight/40 mb-4">
-              Empresa
-            </div>
-            <div className="flex flex-col gap-3 text-sm text-brand-midnight/70">
-              <Link to="/login" className="hover:text-brand-orange transition">Acceso equipo</Link>
-              <a href="mailto:contacto@innovagraf.com.gt" className="hover:text-brand-orange transition">
-                contacto@innovagraf.com.gt
-              </a>
-            </div>
+
+          <div
+            className="rounded-2xl p-9 text-center border"
+            style={{ background: "rgba(12,10,8,.5)", borderColor: "rgba(255,122,46,.3)" }}
+          >
+            <h3 className="font-grotesk font-semibold text-[22px] mb-2">
+              {t("¿Listo para tu diagnóstico?", "Ready for your diagnosis?")}
+            </h3>
+            <p className="text-[14.5px] mb-7" style={{ color: "#b6a99a" }}>
+              {t(
+                "Menos de 5 minutos. Recibe un plan personalizado con IA y propuesta detallada.",
+                "Under 5 minutes. Get an AI-personalized plan and a detailed proposal."
+              )}
+            </p>
+            <Link to="/diagnostico" data-testid="bottom-cta">
+              <Button
+                className="rounded-full px-8 h-[52px] text-base font-bold border-none w-full sm:w-auto"
+                style={{ background: "linear-gradient(140deg,#ff7a2e,#ff5414)", color: "#160a04", boxShadow: "0 12px 30px rgba(255,84,20,.3)" }}
+              >
+                {t("Iniciar diagnóstico gratis", "Start free diagnosis")} <ArrowRight size={18} className="ml-1" />
+              </Button>
+            </Link>
           </div>
         </div>
-        <div className="border-t border-black/5">
-          <div className="max-w-7xl mx-auto px-6 py-6 text-xs text-brand-midnight/50">
-            © {new Date().getFullYear()} Innovagraf Growth System — Guatemala.
+      </section>
+
+      {/* FOOTER */}
+      <footer className="relative z-10 border-t border-white/[0.07] mt-6">
+        <div className="max-w-[1200px] mx-auto px-7 py-10 flex justify-between flex-wrap gap-6 items-center">
+          <span className="flex items-center bg-white rounded-lg px-[11px] py-1.5">
+            <img src={logo} alt="Innovagraf" className="h-9 w-auto" />
+          </span>
+          <div className="text-[13.5px]" style={{ color: "#9b8e80" }}>
+            {t("Software, automatización e inteligencia artificial para tu negocio.", "Software, automation and AI for your business.")}
+          </div>
+          <div className="font-mono2 text-xs" style={{ color: "#7c7065" }}>
+            © {new Date().getFullYear()} Innovagraf
           </div>
         </div>
       </footer>

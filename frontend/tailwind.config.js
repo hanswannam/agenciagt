@@ -7,6 +7,10 @@ module.exports = {
             fontFamily: {
                 display: ["Outfit", "system-ui", "sans-serif"],
                 body: ["Plus Jakarta Sans", "system-ui", "sans-serif"],
+                grotesk: ["Space Grotesk", "system-ui", "sans-serif"],
+                manrope: ["Manrope", "system-ui", "sans-serif"],
+                mono2: ["Space Mono", "monospace"],
+                serifItalic: ["Instrument Serif", "serif"],
             },
             borderRadius: {
                 lg: "var(--radius)",
@@ -60,6 +64,16 @@ module.exports = {
                     orangeDark: "#CC3F00",
                     midnight: "#0B0F19",
                     slate: "#1A202C",
+                },
+                ink: {
+                    DEFAULT: "#0c0a08",
+                    panel: "#161109",
+                    card: "#15110c",
+                },
+                ember: {
+                    DEFAULT: "#ff7a2e",
+                    light: "#ff8a44",
+                    dark: "#ff5414",
                 },
             },
             keyframes: {
