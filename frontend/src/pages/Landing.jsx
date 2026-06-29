@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import logo from "@/assets/logo.png";
@@ -69,8 +69,166 @@ export default function Landing() {
   const [lang, setLang] = useState("es");
   const t = (es, en) => (lang === "es" ? es : en);
 
+  const canvasRef = useRef(null);
+  const robotRef = useRef(null);
+
+  useEffect(() => {
+    const cv = canvasRef.current;
+    const robot = robotRef.current;
+    const ctx = cv ? cv.getContext("2d") : null;
+    const mouse = { x: null, y: null };
+    const rob = { x: window.innerWidth / 2, y: window.innerHeight * 0.4 };
+    const C = "255,138,68";
+    let w = 0;
+    let h = 0;
+    let dpr = 1;
+    let P = [];
+
+    const resize = () => {
+      if (!cv) return;
+      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      w = cv.clientWidth;
+      h = cv.clientHeight;
+      cv.width = w * dpr;
+      cv.height = h * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      const n = Math.min(110, Math.max(30, Math.floor((w * h) / 14000)));
+      P = [];
+      for (let i = 0; i < n; i++) {
+        P.push({ x: Math.random() * w, y: Math.random() * h, vx: (Math.random() - 0.5) * 0.35, vy: (Math.random() - 0.5) * 0.35, r: Math.random() * 1.6 + 0.7 });
+      }
+    };
+    resize();
+
+    const onResize = () => resize();
+    const onMove = (e) => {
+      const pt = e.touches ? e.touches[0] : e;
+      mouse.x = pt.clientX;
+      mouse.y = pt.clientY;
+    };
+    window.addEventListener("resize", onResize);
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("touchmove", onMove, { passive: true });
+
+    const D = 140;
+    const MD = 185;
+    let raf;
+    const tick = () => {
+      if (ctx) {
+        ctx.clearRect(0, 0, w, h);
+        const mx = mouse.x;
+        const my = mouse.y;
+        for (const p of P) {
+          if (mx != null) {
+            const dx = p.x - mx;
+            const dy = p.y - my;
+            const d = Math.hypot(dx, dy);
+            if (d < MD && d > 0.1) {
+              const f = ((MD - d) / MD) * 0.9;
+              p.vx += (dx / d) * f * 0.06;
+              p.vy += (dy / d) * f * 0.06;
+            }
+          }
+          p.x += p.vx;
+          p.y += p.vy;
+          p.vx *= 0.985;
+          p.vy *= 0.985;
+          if (Math.hypot(p.vx, p.vy) < 0.05) {
+            p.vx += (Math.random() - 0.5) * 0.05;
+            p.vy += (Math.random() - 0.5) * 0.05;
+          }
+          if (p.x < 0 || p.x > w) p.vx *= -1;
+          if (p.y < 0 || p.y > h) p.vy *= -1;
+          p.x = Math.max(0, Math.min(w, p.x));
+          p.y = Math.max(0, Math.min(h, p.y));
+        }
+        for (let i = 0; i < P.length; i++) {
+          const a = P[i];
+          for (let j = i + 1; j < P.length; j++) {
+            const b = P[j];
+            const dx = a.x - b.x;
+            const dy = a.y - b.y;
+            const d = Math.hypot(dx, dy);
+            if (d < D) {
+              const o = (1 - d / D) * 0.45;
+              ctx.strokeStyle = `rgba(${C},${o.toFixed(3)})`;
+              ctx.lineWidth = 0.7;
+              ctx.beginPath();
+              ctx.moveTo(a.x, a.y);
+              ctx.lineTo(b.x, b.y);
+              ctx.stroke();
+            }
+          }
+          if (mx != null) {
+            const dx = a.x - mx;
+            const dy = a.y - my;
+            const d = Math.hypot(dx, dy);
+            if (d < MD) {
+              const o = (1 - d / MD) * 0.7;
+              ctx.strokeStyle = `rgba(${C},${o.toFixed(3)})`;
+              ctx.lineWidth = 0.9;
+              ctx.beginPath();
+              ctx.moveTo(a.x, a.y);
+              ctx.lineTo(mx, my);
+              ctx.stroke();
+            }
+          }
+        }
+        for (const p of P) {
+          ctx.fillStyle = `rgba(${C},0.8)`;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.r, 0, 6.283);
+          ctx.fill();
+        }
+      }
+      if (robot) {
+        const tx = (mouse.x == null ? window.innerWidth / 2 : mouse.x) + 22;
+        const ty = (mouse.y == null ? window.innerHeight * 0.4 : mouse.y) + 22;
+        const px = rob.x;
+        rob.x += (tx - rob.x) * 0.085;
+        rob.y += (ty - rob.y) * 0.085;
+        const tilt = Math.max(-14, Math.min(14, (rob.x - px) * 2.4));
+        robot.style.transform = `translate(${rob.x}px,${rob.y}px) rotate(${tilt}deg)`;
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    tick();
+
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("resize", onResize);
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("touchmove", onMove);
+    };
+  }, []);
+
   return (
     <div className="min-h-screen bg-ink text-[#f6efe6] font-manrope overflow-x-hidden relative" style={{ maxWidth: "100vw" }}>
+      <canvas ref={canvasRef} className="fixed inset-0 w-full h-full z-0 pointer-events-none" />
+      <div
+        ref={robotRef}
+        className="fixed left-0 top-0 z-20 pointer-events-none"
+        style={{ transform: "translate(-200px,-200px)", willChange: "transform" }}
+      >
+        <div
+          className="relative flex items-center justify-center gap-2"
+          style={{
+            width: "56px",
+            height: "52px",
+            borderRadius: "15px",
+            background: "linear-gradient(150deg,#2a2018,#14100c)",
+            border: "1px solid rgba(255,122,46,.55)",
+            boxShadow: "0 10px 26px rgba(255,84,20,.4), 0 0 22px rgba(255,122,46,.3)",
+          }}
+        >
+          <span className="absolute" style={{ top: "-11px", left: "calc(50% - 1px)", width: "2px", height: "9px", background: "#ff7a2e" }} />
+          <span className="absolute rounded-full" style={{ top: "-16px", left: "calc(50% - 3px)", width: "7px", height: "7px", background: "#ff8a44", boxShadow: "0 0 9px #ff7a2e" }} />
+          <span className="rounded-full" style={{ width: "12px", height: "12px", background: "#ff8a44", boxShadow: "0 0 11px #ff7a2e" }} />
+          <span className="rounded-full" style={{ width: "12px", height: "12px", background: "#ff8a44", boxShadow: "0 0 11px #ff7a2e" }} />
+          <span className="absolute rounded-[3px]" style={{ bottom: "9px", left: "50%", transform: "translateX(-50%)", width: "18px", height: "3px", background: "rgba(255,138,68,.55)" }} />
+        </div>
+      </div>
+
       {/* ambient glows */}
       <div
         className="dc-glow-pulse absolute -top-32 -right-20 w-[720px] h-[720px] rounded-full pointer-events-none"
