@@ -1,5 +1,13 @@
+import { useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
-import { motion } from "framer-motion";
+import {
+  motion,
+  useMotionValue,
+  useTransform,
+  useInView,
+  useScroll,
+  animate,
+} from "framer-motion";
 import { Button } from "@/components/ui/button";
 import logo from "@/assets/logo.png";
 import {
@@ -14,6 +22,7 @@ import {
   Check,
   Star,
   Quote,
+  TrendingUp,
 } from "lucide-react";
 
 const services = [
@@ -57,9 +66,9 @@ const steps = [
 ];
 
 const stats = [
-  { value: "+120", label: "Empresas potenciadas" },
-  { value: "+58 pts", label: "Madurez digital promedio en 6 meses" },
-  { value: "24h", label: "De diagnóstico a propuesta" },
+  { target: 120, prefix: "+", suffix: "", label: "Empresas potenciadas" },
+  { target: 58, prefix: "+", suffix: " pts", label: "Madurez digital promedio en 6 meses" },
+  { target: 24, prefix: "", suffix: "h", label: "De diagnóstico a propuesta" },
 ];
 
 const fadeUp = {
@@ -69,7 +78,67 @@ const fadeUp = {
   transition: { duration: 0.5 },
 };
 
+const heroStagger = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.08, delayChildren: 0.05 } },
+};
+
+const fadeUpItem = {
+  hidden: { opacity: 0, y: 20 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.5 } },
+};
+
+function CountUp({ target, prefix = "", suffix = "", duration = 1.4 }) {
+  const ref = useRef(null);
+  const isInView = useInView(ref, { once: true, margin: "-80px" });
+  const motionValue = useMotionValue(0);
+  const display = useTransform(motionValue, (v) => `${prefix}${Math.round(v)}${suffix}`);
+
+  useEffect(() => {
+    if (!isInView) return;
+    const controls = animate(motionValue, target, { duration, ease: "easeOut" });
+    return controls.stop;
+  }, [isInView, motionValue, target, duration]);
+
+  return <motion.span ref={ref}>{display}</motion.span>;
+}
+
+function TiltPanel({ children, className }) {
+  const ref = useRef(null);
+  const x = useMotionValue(0);
+  const y = useMotionValue(0);
+  const rotateX = useTransform(y, [-0.5, 0.5], ["6deg", "-6deg"]);
+  const rotateY = useTransform(x, [-0.5, 0.5], ["-6deg", "6deg"]);
+
+  const handleMouseMove = (e) => {
+    const rect = ref.current.getBoundingClientRect();
+    x.set((e.clientX - rect.left) / rect.width - 0.5);
+    y.set((e.clientY - rect.top) / rect.height - 0.5);
+  };
+  const handleMouseLeave = () => {
+    x.set(0);
+    y.set(0);
+  };
+
+  return (
+    <motion.div
+      ref={ref}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
+      style={{ rotateX, rotateY, transformPerspective: 1000 }}
+      className={className}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
 export default function Landing() {
+  const heroRef = useRef(null);
+  const { scrollYProgress } = useScroll({ target: heroRef, offset: ["start start", "end start"] });
+  const glowY = useTransform(scrollYProgress, [0, 1], [0, -60]);
+  const glowY2 = useTransform(scrollYProgress, [0, 1], [0, -110]);
+
   return (
     <div className="min-h-screen bg-[#FAFAFA] text-brand-midnight">
       {/* NAV */}
@@ -95,29 +164,40 @@ export default function Landing() {
       </header>
 
       {/* HERO */}
-      <section className="relative overflow-hidden grain">
-        <div className="absolute inset-0 dotted-bg opacity-60 pointer-events-none" />
-        <div className="absolute -top-32 -left-32 w-[28rem] h-[28rem] bg-brand-orange/10 rounded-full blur-3xl pointer-events-none" />
+      <section ref={heroRef} className="relative overflow-hidden grain">
+        <div className="absolute inset-0 dotted-bg opacity-40 pointer-events-none" />
+        <motion.div
+          style={{ y: glowY }}
+          className="absolute -top-32 -left-32 w-[28rem] h-[28rem] bg-brand-orange/10 rounded-full blur-3xl pointer-events-none"
+        />
+        <motion.div
+          style={{ y: glowY2 }}
+          className="absolute top-1/3 -right-24 w-80 h-80 bg-brand-orange/10 rounded-full blur-3xl pointer-events-none"
+        />
         <div className="max-w-7xl mx-auto px-6 pt-20 pb-24 grid lg:grid-cols-12 gap-10 items-center relative">
-          <motion.div
-            initial={{ opacity: 0, y: 24 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="lg:col-span-7"
-          >
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-brand-midnight text-white text-xs font-bold tracking-[0.2em] uppercase mb-6">
-              <span className="w-1.5 h-1.5 bg-brand-orange rounded-full" />
+          <motion.div variants={heroStagger} initial="hidden" animate="show" className="lg:col-span-7">
+            <motion.div
+              variants={fadeUpItem}
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-brand-midnight text-white text-xs font-bold tracking-[0.2em] uppercase mb-6"
+            >
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="pulse-ring absolute inline-flex h-full w-full rounded-full bg-brand-orange" />
+                <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-brand-orange" />
+              </span>
               Innovagraf Growth System
-            </div>
-            <h1 className="font-display text-5xl sm:text-6xl lg:text-7xl font-extrabold leading-[0.95] tracking-tighter">
+            </motion.div>
+            <motion.h1
+              variants={fadeUpItem}
+              className="font-display text-5xl sm:text-6xl lg:text-7xl font-extrabold leading-[0.95] tracking-tighter"
+            >
               Convertimos tu empresa en una{" "}
-              <span className="text-brand-orange">máquina digital</span> de crecimiento.
-            </h1>
-            <p className="mt-6 text-lg text-brand-midnight/70 max-w-xl leading-relaxed">
+              <span className="text-glow">máquina digital</span> de crecimiento.
+            </motion.h1>
+            <motion.p variants={fadeUpItem} className="mt-6 text-lg text-brand-midnight/70 max-w-xl leading-relaxed">
               Diagnóstico inteligente + plan personalizado de páginas web, CRM, automatización,
               chatbots y agentes de IA. Sin reuniones eternas, sin propuestas genéricas.
-            </p>
-            <div className="mt-8 flex flex-wrap gap-3">
+            </motion.p>
+            <motion.div variants={fadeUpItem} className="mt-8 flex flex-wrap gap-3">
               <Link to="/diagnostico" data-testid="hero-cta-primary">
                 <Button
                   size="lg"
@@ -136,37 +216,48 @@ export default function Landing() {
                   Ver servicios
                 </Button>
               </a>
-            </div>
-            <div className="mt-10 flex items-center gap-6 text-sm text-brand-midnight/60">
+            </motion.div>
+            <motion.div variants={fadeUpItem} className="mt-10 flex items-center gap-6 text-sm text-brand-midnight/60">
               <div className="flex">
                 {[0, 1, 2, 3, 4].map((i) => (
                   <Star key={i} size={16} className="fill-brand-orange text-brand-orange" />
                 ))}
               </div>
               <span>+120 empresas potenciadas en Centroamérica</span>
-            </div>
-            <div className="mt-12 grid grid-cols-3 max-w-md divide-x divide-black/10 border-t border-black/10 pt-6">
+            </motion.div>
+            <motion.div
+              variants={fadeUpItem}
+              className="mt-12 grid grid-cols-3 max-w-md divide-x divide-black/10 border-t border-black/10 pt-6"
+            >
               {stats.map((s) => (
                 <div key={s.label} className="px-4 first:pl-0">
-                  <div className="font-display text-2xl font-bold tracking-tight">{s.value}</div>
+                  <div className="font-display text-2xl font-bold tracking-tight">
+                    <CountUp target={s.target} prefix={s.prefix} suffix={s.suffix} />
+                  </div>
                   <div className="text-xs text-brand-midnight/55 mt-1 leading-snug">{s.label}</div>
                 </div>
               ))}
-            </div>
+            </motion.div>
           </motion.div>
+
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.6, delay: 0.2 }}
             className="lg:col-span-5"
           >
-            <div className="relative rounded-3xl overflow-hidden border border-black/10 shadow-2xl bg-brand-midnight">
-              <img
-                src="https://images.unsplash.com/photo-1470075801209-17f9ec0cada6?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxODh8MHwxfHNlYXJjaHwxfHxtb2Rlcm4lMjBjb3Jwb3JhdGUlMjBnbGFzcyUyMG9mZmljZSUyMGFyY2hpdGVjdHVyZSUyMHN1bnNldHxlbnwwfHx8fDE3ODEyODkxMjl8MA&ixlib=rb-4.1.0&q=85"
-                alt="Innovagraf"
-                className="w-full h-[420px] object-cover opacity-80"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-brand-midnight via-brand-midnight/60 to-transparent" />
+            <TiltPanel className="relative rounded-3xl overflow-hidden border border-white/10 shadow-2xl bg-brand-midnight h-[460px]">
+              <div className="absolute inset-0 circuit-grid" />
+              <div className="absolute inset-0 bg-gradient-to-br from-brand-midnight via-brand-midnight/95 to-brand-slate/90" />
+
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span className="pulse-ring absolute h-28 w-28 rounded-full border border-brand-orange/40" />
+                <span className="pulse-ring absolute h-28 w-28 rounded-full border border-brand-orange/40 [animation-delay:0.8s]" />
+                <div className="relative h-16 w-16 rounded-2xl bg-brand-orange/15 border border-brand-orange/30 flex items-center justify-center backdrop-blur-md">
+                  <Bot size={28} className="text-brand-orange" />
+                </div>
+              </div>
+
               <motion.div
                 initial={{ opacity: 0, y: -12 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -176,16 +267,45 @@ export default function Landing() {
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
                 Diagnóstico en vivo
               </motion.div>
+
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.7 }}
+                className="float-y absolute top-6 left-6 flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/15 text-white text-xs font-semibold"
+              >
+                <TrendingUp size={14} className="text-brand-orange" />
+                +184% leads
+              </motion.div>
+
+              <div className="absolute bottom-24 left-6 right-6">
+                <svg viewBox="0 0 200 60" className="w-full h-14 overflow-visible">
+                  <motion.path
+                    d="M0,48 L30,40 L60,42 L90,22 L130,26 L160,8 L200,12"
+                    fill="none"
+                    stroke="#FF4F00"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    initial={{ pathLength: 0, opacity: 0 }}
+                    whileInView={{ pathLength: 1, opacity: 1 }}
+                    viewport={{ once: true }}
+                    transition={{ duration: 1.4, ease: "easeOut", delay: 0.4 }}
+                  />
+                </svg>
+              </div>
+
               <div className="absolute bottom-6 left-6 right-6 text-white">
                 <div className="text-xs tracking-[0.3em] uppercase text-brand-orange font-bold mb-2">
                   Madurez digital
                 </div>
-                <div className="font-display text-4xl font-bold">+58 puntos</div>
+                <div className="font-display text-4xl font-bold">
+                  <CountUp target={58} prefix="+" suffix=" puntos" />
+                </div>
                 <div className="text-white/70 text-sm mt-1">
                   Score promedio que aumentan nuestros clientes en 6 meses.
                 </div>
               </div>
-            </div>
+            </TiltPanel>
           </motion.div>
         </div>
       </section>
@@ -211,10 +331,10 @@ export default function Landing() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.35, delay: idx * 0.04 }}
-                className="group bg-white border border-black/10 rounded-2xl p-7 hover:border-brand-orange/40 hover:shadow-md transition-all"
+                className="group bg-white border border-black/10 rounded-2xl p-7 hover:border-brand-orange/40 hover:shadow-xl hover:shadow-brand-orange/10 hover:-translate-y-1 transition-all"
                 data-testid={`service-card-${s.name.toLowerCase().replace(/\s+/g, "-")}`}
               >
-                <div className="w-12 h-12 rounded-xl bg-brand-orange/10 text-brand-orange flex items-center justify-center mb-5 group-hover:bg-brand-orange group-hover:text-white transition">
+                <div className="w-12 h-12 rounded-xl bg-brand-orange/10 text-brand-orange flex items-center justify-center mb-5 transition-all group-hover:bg-brand-orange group-hover:text-white group-hover:scale-110 group-hover:rotate-3">
                   <s.icon size={22} />
                 </div>
                 <h3 className="font-display font-bold text-xl mb-2">{s.name}</h3>
@@ -227,7 +347,8 @@ export default function Landing() {
 
       {/* PROCESS */}
       <section id="proceso" className="py-24 bg-brand-midnight text-white relative overflow-hidden grain">
-        <div className="absolute -top-20 -right-20 w-80 h-80 bg-brand-orange/30 rounded-full blur-3xl" />
+        <div className="absolute inset-0 circuit-grid opacity-20 pointer-events-none" />
+        <div className="glow-breathe absolute -top-20 -right-20 w-80 h-80 bg-brand-orange/30 rounded-full blur-3xl" />
         <div className="max-w-7xl mx-auto px-6 relative">
           <motion.div {...fadeUp} className="max-w-2xl mb-16">
             <div className="text-xs tracking-[0.3em] uppercase text-brand-orange font-bold mb-3">Proceso</div>
@@ -249,6 +370,13 @@ export default function Landing() {
                 <div className="font-display text-5xl font-bold text-brand-orange mb-3">{s.n}</div>
                 <div className="font-semibold text-xl mb-2">{s.t}</div>
                 <div className="text-white/70 text-sm">{s.d}</div>
+                <motion.div
+                  initial={{ scaleX: 0 }}
+                  whileInView={{ scaleX: 1 }}
+                  viewport={{ once: true, margin: "-80px" }}
+                  transition={{ duration: 0.6, delay: idx * 0.08 + 0.2, ease: "easeOut" }}
+                  className="mt-5 h-px w-full bg-gradient-to-r from-brand-orange/80 to-transparent origin-left"
+                />
               </motion.div>
             ))}
           </div>
@@ -274,14 +402,22 @@ export default function Landing() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: "-80px" }}
                 transition={{ duration: 0.4, delay: idx * 0.08 }}
-                className="border border-black/10 rounded-2xl p-7 hover:shadow-xl hover:-translate-y-1 hover:border-brand-orange/30 transition-all bg-white"
+                className="group border border-black/10 rounded-2xl p-7 hover:shadow-xl hover:shadow-brand-orange/10 hover:-translate-y-1 hover:border-brand-orange/30 transition-all bg-white"
                 data-testid={`case-${c.company.toLowerCase().replace(/\s+/g, "-")}`}
               >
                 <div className="flex items-center justify-between mb-4">
-                  <Quote size={22} className="text-brand-orange" />
+                  <Quote size={22} className="text-brand-orange transition-transform group-hover:-rotate-6" />
                   <div className="flex">
                     {[0, 1, 2, 3, 4].map((i) => (
-                      <Star key={i} size={12} className="fill-brand-orange text-brand-orange" />
+                      <motion.span
+                        key={i}
+                        initial={{ opacity: 0, scale: 0.5 }}
+                        whileInView={{ opacity: 1, scale: 1 }}
+                        viewport={{ once: true }}
+                        transition={{ duration: 0.25, delay: idx * 0.08 + i * 0.05 }}
+                      >
+                        <Star size={12} className="fill-brand-orange text-brand-orange" />
+                      </motion.span>
                     ))}
                   </div>
                 </div>
@@ -314,7 +450,8 @@ export default function Landing() {
             transition={{ duration: 0.5 }}
             className="bg-brand-midnight text-white rounded-3xl p-12 md:p-16 relative overflow-hidden grain shadow-2xl"
           >
-            <div className="absolute -bottom-20 -left-20 w-80 h-80 bg-brand-orange/30 rounded-full blur-3xl" />
+            <div className="absolute inset-0 circuit-grid opacity-15 pointer-events-none" />
+            <div className="glow-breathe absolute -bottom-20 -left-20 w-80 h-80 bg-brand-orange/30 rounded-full blur-3xl" />
             <div className="relative grid md:grid-cols-2 gap-8 items-center">
               <div>
                 <h2 className="font-display text-4xl sm:text-5xl font-bold tracking-tighter">
