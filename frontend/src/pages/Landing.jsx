@@ -75,6 +75,10 @@ export default function Landing() {
   useEffect(() => {
     const cv = canvasRef.current;
     const robot = robotRef.current;
+    if (robot) {
+      robot.style.opacity = "0";
+      robot.style.transition = "opacity .5s ease";
+    }
     const ctx = cv ? cv.getContext("2d") : null;
     const mouse = { x: null, y: null };
     const rob = { x: window.innerWidth / 2, y: window.innerHeight * 0.4 };
@@ -105,6 +109,7 @@ export default function Landing() {
       const pt = e.touches ? e.touches[0] : e;
       mouse.x = pt.clientX;
       mouse.y = pt.clientY;
+      if (robot) robot.style.opacity = "1";
     };
     window.addEventListener("resize", onResize);
     window.addEventListener("mousemove", onMove);
@@ -243,8 +248,11 @@ export default function Landing() {
       <nav className="sticky top-0 z-50 backdrop-blur-xl border-b border-white/[0.07]" style={{ background: "rgba(12,10,8,.72)" }}>
         <div className="max-w-[1200px] mx-auto px-7 h-16 flex items-center justify-between gap-6">
           <Link to="/" className="flex items-center" data-testid="landing-logo">
-            <span className="flex items-center bg-white rounded-lg px-3 py-1.5 shadow-lg">
+            <span className="hidden sm:flex items-center bg-white rounded-lg px-3 py-1.5 shadow-lg">
               <img src={logo} alt="Innovagraf" className="h-7 w-auto" />
+            </span>
+            <span className="flex sm:hidden items-center bg-white rounded-lg p-1.5 shadow-lg">
+              <img src="/logo192.png" alt="Innovagraf" className="h-7 w-7" />
             </span>
           </Link>
           <div className="hidden md:flex items-center gap-7 text-sm font-medium text-[#c3b6a8]">
@@ -273,7 +281,7 @@ export default function Landing() {
                 EN
               </button>
             </div>
-            <Link to="/diagnostico" data-testid="landing-cta-nav">
+            <Link to="/diagnostico" data-testid="landing-cta-nav" className="hidden sm:block">
               <Button
                 className="rounded-full px-5 h-10 text-sm font-bold border-none"
                 style={{ background: "linear-gradient(140deg,#ff7a2e,#ff5414)", color: "#160a04", boxShadow: "0 8px 24px rgba(255,84,20,.32)" }}
