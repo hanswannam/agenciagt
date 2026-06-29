@@ -246,13 +246,10 @@ export default function Landing() {
 
       {/* NAV */}
       <nav className="sticky top-0 z-50 backdrop-blur-xl border-b border-white/[0.07]" style={{ background: "rgba(12,10,8,.72)" }}>
-        <div className="max-w-[1200px] mx-auto px-7 h-16 flex items-center justify-between gap-6">
+        <div className="max-w-[1200px] mx-auto p-4 sm:px-7 sm:py-0 sm:h-16 flex flex-col sm:flex-row items-center justify-center sm:justify-between gap-[13px] sm:gap-6">
           <Link to="/" className="flex items-center" data-testid="landing-logo">
-            <span className="hidden sm:flex items-center bg-white rounded-lg px-3 py-1.5 shadow-lg">
-              <img src={logo} alt="Innovagraf" className="h-7 w-auto" />
-            </span>
-            <span className="flex sm:hidden items-center bg-white rounded-lg p-1.5 shadow-lg">
-              <img src="/logo192.png" alt="Innovagraf" className="h-7 w-7" />
+            <span className="flex items-center bg-white rounded-lg px-3 py-1.5 shadow-lg">
+              <img src={logo} alt="Innovagraf" className="h-11 sm:h-7 w-auto" />
             </span>
           </Link>
           <div className="hidden md:flex items-center gap-7 text-sm font-medium text-[#c3b6a8]">
